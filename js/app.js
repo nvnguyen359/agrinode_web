@@ -93,12 +93,46 @@ async function fetchLocalDevices() {
     } catch(e) {}
 }
 
-function checkPin() {
+async function checkPin() {
     const inputStr = document.getElementById('secret-pin-input').value;
     if (inputStr.length < 6) return; 
 
     document.getElementById('pin-error-msg').style.display = 'none';
 
+    // --- XỬ LÝ OFFLINE (KHI ĐANG KẾT NỐI AP MODE / LOCAL LAN) ---
+    if (isLocal) {
+        showLoading("Đang xác thực mã PIN...");
+        try {
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin: inputStr })
+            });
+            const data = await res.json();
+            
+            if (data.success) {
+                currentPin = inputStr; 
+                localStorage.setItem('agrinode_pin', currentPin);
+                document.getElementById('pin-lock-overlay').classList.add('hidden');
+                
+                // Sau khi đăng nhập local thành công, tải cấu hình thiết bị
+                await fetchLocalDevices(); 
+                hideLoading();
+                return;
+            } else {
+                hideLoading();
+                document.getElementById('pin-error-msg').style.display = 'block';
+                document.getElementById('secret-pin-input').value = '';
+                return;
+            }
+        } catch (err) {
+            hideLoading();
+            alert("Không thể kết nối đến mạch ESP. Vui lòng thử lại!");
+            return;
+        }
+    }
+
+    // --- XỬ LÝ ONLINE (KHI ĐIỀU KHIỂN TỪ XA QUA INTERNET) ---
     if (!isMqttConnected || !mqttClient) {
         document.getElementById('pin-status-msg').style.display = 'block'; 
         document.getElementById('btn-unlock').disabled = true; 
