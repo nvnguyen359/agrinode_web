@@ -1,6 +1,6 @@
 // ==========================================
 // FULL CODE app.js - HIVEMQ PRIVATE CLOUD EDITION
-// TÍCH HỢP CƠ CHẾ AUTO BACKUP & RESTORE TỪ CLIENT
+// TÍCH HỢP AUTO BACKUP & TỰ ĐỘNG KIỂM TRA UPDATE
 // ==========================================
 
 const MAC_ADDRESS = "CC50E3DADF75"; 
@@ -12,6 +12,10 @@ let activeZone = 'all';
 let tempDeviceType = '';
 let editingDeviceId = null; 
 let CURRENT_VERSION = "Unknown"; 
+
+// --- CỜ VÀ ĐƯỜNG DẪN KIỂM TRA UPDATE TỰ ĐỘNG ---
+let hasCheckedUpdate = false; 
+const GITHUB_VERSION_URL = "https://raw.githubusercontent.com/nvnguyen359/agrinode_update/main/version.json";
 
 const isLocal = window.location.hostname.match(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/) || window.location.hostname === 'localhost' || window.location.hostname.includes('.local');
 
@@ -67,6 +71,9 @@ window.onload = async () => {
             if (infoData.version) {
                 CURRENT_VERSION = infoData.version;
                 document.getElementById('current-version-text').innerText = `Phiên bản: v${CURRENT_VERSION}`;
+                
+                // Kích hoạt tính năng kiểm tra bản mới tự động (đợi 2 giây cho web mượt mà)
+                if(!hasCheckedUpdate) { hasCheckedUpdate = true; setTimeout(autoCheckUpdate, 2000); }
             }
         } catch (e) { loadDefaultPins(); }
         await fetchLocalDevices(); 
@@ -90,6 +97,36 @@ function loadDefaultPins() {
     HARDWARE_PINS = pins.map(p => ({pin: p, label: 'D'+p}));
 }
 
+// ================= CƠ CHẾ AUTO UPDATE CHECK TỪ GITHUB =================
+async function autoCheckUpdate() {
+    if (CURRENT_VERSION === "Unknown") return;
+    try {
+        // Thêm timestamp vào URL để chống cache trình duyệt, luôn lấy file mới nhất
+        const checkUrl = GITHUB_VERSION_URL + "?t=" + new Date().getTime();
+        const res = await fetch(checkUrl, { cache: "no-store" });
+        const vData = await res.json();
+        
+        if (vData.version && vData.version !== CURRENT_VERSION) {
+            // Đổi giao diện cảnh báo có phiên bản mới
+            document.getElementById('current-version-text').innerHTML = `Phiên bản: v${CURRENT_VERSION} <span style="color:#ef4444; font-weight:bold;">(Có bản mới: v${vData.version})</span>`;
+            
+            // Hiện hộp thoại hỏi người dùng
+            const doUpdate = confirm(`🚀 Có phiên bản Firmware mới: v${vData.version} (Hiện tại: v${CURRENT_VERSION})\n\n[Tính năng mới]\n${vData.release_notes || 'Bản vá lỗi và tối ưu hệ thống'}\n\nBạn có muốn cập nhật ngay bây giờ không?`);
+            
+            if (doUpdate) {
+                // Điền sẵn link chuẩn và kích hoạt nạp luôn
+                const urlInput = document.getElementById('ota-url');
+                if (urlInput) urlInput.value = GITHUB_VERSION_URL;
+                triggerCloudOta(GITHUB_VERSION_URL); 
+            }
+        } else {
+            document.getElementById('current-version-text').innerText = `Phiên bản: v${CURRENT_VERSION} (Mới nhất)`;
+        }
+    } catch (e) {
+        console.log("Auto update check ngầm bị lỗi (Có thể do mạng): ", e);
+    }
+}
+
 // ================= CƠ CHẾ BACKUP & RESTORE =================
 function backupToClient() {
     if (devices && devices.length > 0) {
@@ -110,7 +147,6 @@ async function checkAndRestoreBackup() {
                         showLoading("Đang khôi phục dữ liệu...");
                         for (const dev of backedUpDevices) {
                             await restoreSingleDevice(dev);
-                            // Cần delay nhẹ để mạch ESP xử lý kịp, tránh tràn bộ đệm
                             await new Promise(resolve => setTimeout(resolve, 500)); 
                         }
                         hideLoading();
@@ -127,7 +163,6 @@ async function checkAndRestoreBackup() {
             } catch (e) { console.error("Lỗi đọc backup", e); }
         }
     } else {
-        // Nếu mạch đang có data, ta ghi đè backup mới nhất
         backupToClient();
     }
 }
@@ -161,12 +196,12 @@ async function fetchLocalDevices() {
         if (res.ok) { 
             devices = await res.json(); 
             renderZones(); renderDevices(); 
-            await checkAndRestoreBackup(); // Kích hoạt kiểm tra khôi phục
+            await checkAndRestoreBackup(); 
         }
     } catch(e) {}
 }
 
-async function checkPin() {
+function checkPin() {
     const inputStr = document.getElementById('secret-pin-input').value;
     if (inputStr.length < 6) return; 
 
@@ -174,33 +209,28 @@ async function checkPin() {
 
     if (isLocal) {
         showLoading("Đang xác thực mã PIN...");
-        try {
-            const res = await fetch('/api/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ pin: inputStr })
-            });
-            const data = await res.json();
-            
+        // Ở chế độ Local, xác thực qua API HTTP
+        fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pin: inputStr })
+        }).then(res => res.json()).then(data => {
             if (data.success) {
                 currentPin = inputStr; 
                 localStorage.setItem('agrinode_pin', currentPin);
                 document.getElementById('pin-lock-overlay').classList.add('hidden');
-                
-                await fetchLocalDevices(); 
+                fetchLocalDevices(); 
                 hideLoading();
-                return;
             } else {
                 hideLoading();
                 document.getElementById('pin-error-msg').style.display = 'block';
                 document.getElementById('secret-pin-input').value = '';
-                return;
             }
-        } catch (err) {
+        }).catch(err => {
             hideLoading();
             alert("Không thể kết nối đến mạch ESP. Vui lòng thử lại!");
-            return;
-        }
+        });
+        return;
     }
 
     if (!isMqttConnected || !mqttClient) {
@@ -246,6 +276,12 @@ function setupMQTT() {
                 if (data.version) {
                     CURRENT_VERSION = data.version;
                     document.getElementById('current-version-text').innerText = `Phiên bản: v${CURRENT_VERSION}`;
+                    
+                    // Kích hoạt check update tự động (Chỉ chạy qua Cloud nếu không phải truy cập từ Local)
+                    if (!hasCheckedUpdate && !isLocal) { 
+                        hasCheckedUpdate = true; 
+                        setTimeout(autoCheckUpdate, 2000); 
+                    }
                 }
 
                 if (data.auth) {
@@ -289,7 +325,7 @@ function setupMQTT() {
                 if (data.devices) { 
                     devices = data.devices; 
                     dataHasUpdated = true; 
-                    checkAndRestoreBackup(); // Kích hoạt kiểm tra khôi phục từ Cloud
+                    checkAndRestoreBackup(); 
                 } 
                 else if (Array.isArray(data)) { 
                     devices = data; 
@@ -512,7 +548,6 @@ function deleteDevice(id) {
             const payload = { cmd: "delete", id: deviceToDelete };
             sendMqttAction(payload, "Đang xóa...", () => { 
                 deviceToDelete = null; 
-                // Cập nhật lại list local để xóa backup nếu xóa hết
                 devices = devices.filter(d => d.id !== id);
                 if (devices.length === 0) localStorage.removeItem(BACKUP_KEY);
             });
@@ -526,7 +561,6 @@ function deleteDevice(id) {
             const res = await fetch(`/api/devices?id=${deviceToDelete}`, { method: 'DELETE', signal: controller.signal });
             clearTimeout(timeoutId);
             if (res.ok) {
-                // Nếu xóa thiết bị cuối cùng, xóa luôn backup
                 devices = devices.filter(d => d.id !== deviceToDelete);
                 if (devices.length === 0) localStorage.removeItem(BACKUP_KEY);
                 await fetchLocalDevices();
@@ -638,9 +672,10 @@ function saveWiFi(e) {
 
 function togglePassword() { const i = document.getElementById('wifi-pass'); i.type = (i.type === 'password') ? 'text' : 'password'; }
 
-// HÀM OTA KIỂM TRA PHIÊN BẢN QUA CLOUD / GITHUB
-async function triggerCloudOta() {
-    let url = document.getElementById('ota-url').value.trim();
+// HÀM KÍCH HOẠT OTA KHI NGƯỜI DÙNG BẤM NÚT THỦ CÔNG
+async function triggerCloudOta(overrideUrl = null) {
+    // Nếu có overrideUrl (từ AutoCheck), dùng nó. Nếu không, lấy từ ô Input trong HTML.
+    let url = overrideUrl || document.getElementById('ota-url').value.trim();
     if (!url) return alert("Vui lòng nhập đường dẫn chứa file version.json hoặc firmware.bin!");
 
     if (url.includes("github.com") && url.includes("/blob/")) {
@@ -649,10 +684,12 @@ async function triggerCloudOta() {
 
     let targetFirmwareUrl = url;
 
-    if (url.toLowerCase().endsWith(".json")) {
+    // Chặn luồng check version nếu truyền file JSON vào (khi bấm thủ công)
+    if (!overrideUrl && url.toLowerCase().endsWith(".json")) {
         showLoading("Đang kiểm tra phiên bản...");
         try {
-            const res = await fetch(url);
+            const checkUrl = url + "?t=" + new Date().getTime();
+            const res = await fetch(checkUrl, { cache: "no-store" });
             const vData = await res.json();
             hideLoading();
 
@@ -672,11 +709,9 @@ async function triggerCloudOta() {
             hideLoading();
             return alert("Không thể tải thông tin phiên bản từ GitHub! Vui lòng kiểm tra lại đường dẫn mạng.");
         }
-    } else {
-        const confirmUpdate = confirm("⚠️ Cảnh báo: Bạn đang nạp trực tiếp file Firmware mà không thông qua Version Check. Mạch sẽ khởi động lại, bạn có chắc chắn?");
-        if (!confirmUpdate) return;
     }
 
+    // Bắt đầu gửi lệnh xuống ESP
     if (isLocal) {
         showLoading("Đang ra lệnh nạp firmware...");
         try {
@@ -699,7 +734,7 @@ async function triggerCloudOta() {
         const payload = { cmd: "update", url: targetFirmwareUrl };
         sendMqttAction(payload, "Đang gửi lệnh OTA...", () => {
             alert("Lệnh nâng cấp đã gửi qua Cloud. Mạch sẽ tự tải code từ GitHub, vui lòng đợi 1-2 phút!");
-            document.getElementById('ota-url').value = '';
+            if (document.getElementById('ota-url')) document.getElementById('ota-url').value = '';
         });
     }
 }
