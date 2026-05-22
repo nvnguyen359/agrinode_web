@@ -1,18 +1,22 @@
 <!DOCTYPE html>
 <html lang="vi">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>AgriNode Controller</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
-
 <body>
     <div id="app">
         <header class="app-header">
             <h2>AgriNode</h2>
-            <div id="connection-status" class="status-dot offline"></div>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <div id="btn-ota-update" style="cursor: pointer; position: relative; display: none;" onclick="OTA.promptUpdate()">
+                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="var(--primary)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    <span id="ota-badge" style="position:absolute; top:-4px; right:-4px; width:10px; height:10px; background:var(--alert-color); border-radius:50%;"></span>
+                </div>
+                <div id="connection-status" class="status-dot offline"></div>
+            </div>
         </header>
 
         <div class="zone-scroll" id="zone-container" style="display: none;"></div>
@@ -32,196 +36,102 @@
                 </div>
 
                 <div class="section-title mt-20 d-flex-between">
-                    <span>Cập nhật qua Cloud (OTA)</span>
-                    <span id="current-version-text"
-                        style="color: var(--primary); font-size: 0.85rem; font-weight: bold;">Phiên bản: Đang
-                        tải...</span>
+                    <span>Thiết bị hoạt động</span>
+                    <button class="btn-sm btn-outline" onclick="UI.openDeviceModal()">+ Thêm</button>
                 </div>
-                <div class="card setup-card">
-                    <p class="setup-desc">Nhập link file <b>version.json</b> để hệ thống tự động kiểm tra tính năng và
-                        nâng cấp an toàn.</p>
-                    <div class="input-group">
-                        <label>Đường dẫn kiểm tra phiên bản (URL)</label>
-                        <input type="text" id="ota-url" placeholder="https://.../version.json">
-                    </div>
-                    <button class="btn-primary" onclick="triggerCloudOta()">Kiểm tra & Cập nhật</button>
-                </div>
-
                 <div id="device-list"></div>
             </section>
 
             <section id="view-setup" class="page">
+                <div class="section-title d-flex-between">
+                    <span>Thông tin hệ thống</span>
+                    <span id="current-version-text" style="color: var(--primary); font-size: 0.85rem; font-weight: bold;">Phiên bản: Đang tải...</span>
+                </div>
+                <div class="card setup-card" style="margin-bottom: 20px;">
+                    <button class="btn-primary" onclick="OTA.promptUpdate(true)" style="background: #3b82f6;">Kiểm tra bản cập nhật mới</button>
+                </div>
+
                 <div class="section-title">Kết nối Internet (WiFi)</div>
                 <div class="card setup-card">
                     <p class="setup-desc">Chọn mạng WiFi để thiết bị kết nối với Cloud.</p>
-                    <form id="wifi-form" onsubmit="saveWiFi(event)">
+                    <form id="wifi-form" onsubmit="App.saveWiFi(event)">
                         <div class="input-group">
                             <label>Tên WiFi (SSID)</label>
                             <div class="scan-wrapper">
-                                <select id="wifi-ssid" required>
-                                    <option value="">Đang quét mạng...</option>
-                                </select>
-                                <button type="button" class="btn-icon" onclick="scanWiFi()">🔄</button>
+                                <select id="wifi-ssid" required><option value="">Đang quét mạng...</option></select>
+                                <button type="button" class="btn-icon" onclick="App.scanWiFi()">🔄</button>
                             </div>
                         </div>
                         <div class="input-group">
                             <label>Mật khẩu</label>
                             <div style="position: relative;">
-                                <input type="password" id="wifi-pass" placeholder="Nhập mật khẩu WiFi"
-                                    style="padding-right: 40px;">
-                                <button type="button" onclick="togglePassword()" id="toggle-pass-btn"
-                                    style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 1.1rem; cursor: pointer; padding: 0;">👁️</button>
+                                <input type="password" id="wifi-pass" placeholder="Nhập mật khẩu WiFi" style="padding-right: 40px;">
+                                <button type="button" onclick="UI.togglePassword()" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 1.1rem; cursor: pointer; padding: 0;">👁️</button>
                             </div>
                         </div>
                         <button type="submit" class="btn-primary">Lưu & Kết nối</button>
                     </form>
                 </div>
-
-                <div class="section-title mt-20">Cập nhật qua Cloud (OTA)</div>
-                <div class="card setup-card">
-                    <p class="setup-desc">Nhập link file <b>firmware.bin</b> (từ GitHub hoặc máy chủ) để nạp mã mới trực
-                        tuyến.</p>
-                    <div class="input-group">
-                        <label>Đường dẫn Firmware URL</label>
-                        <input type="text" id="ota-url" placeholder="https://github.com/.../firmware.bin">
-                    </div>
-                    <button class="btn-primary" onclick="triggerCloudOta()">Bắt đầu Cập nhật</button>
-                </div>
             </section>
         </main>
 
         <nav class="bottom-nav">
-            <button class="nav-item active" onclick="navigate('dashboard')" id="nav-dashboard">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-                    <polyline points="9 22 9 12 15 12 15 22"></polyline>
-                </svg>
+            <button class="nav-item active" onclick="UI.navigate('dashboard')" id="nav-dashboard">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
                 <span>Thiết bị</span>
             </button>
-            <button class="nav-item" onclick="navigate('setup')" id="nav-setup">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="12" cy="12" r="3"></circle>
-                    <path
-                        d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z">
-                    </path>
-                </svg>
+            <button class="nav-item" onclick="UI.navigate('setup')" id="nav-setup">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                 <span>Cài đặt</span>
             </button>
         </nav>
 
-        <div id="modal-select-type" class="modal-overlay hidden">
-            <div class="modal-box">
-                <div class="modal-header">
-                    <h3>Chọn loại thiết bị</h3><button class="close-btn"
-                        onclick="closeModal('modal-select-type')">✕</button>
-                </div>
-                <div class="modal-body type-grid">
-                    <div class="type-card" onclick="selectDeviceType('fan')">
-                        <div class="type-icon">🌬️</div>
-                        <div>Quạt thông gió</div>
-                    </div>
-                    <div class="type-card" onclick="selectDeviceType('heater')">
-                        <div class="type-icon">💡</div>
-                        <div>Đèn sưởi/Úm</div>
-                    </div>
-                    <div class="type-card" onclick="selectDeviceType('pump')">
-                        <div class="type-icon">💧</div>
-                        <div>Bơm làm mát</div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <div id="modal-select-type" class="modal-overlay hidden"><div class="modal-box"><div class="modal-header"><h3>Chọn loại thiết bị</h3><button class="close-btn" onclick="UI.closeModal('modal-select-type')">✕</button></div><div class="modal-body type-grid"><div class="type-card" onclick="UI.selectDeviceType('fan')"><div class="type-icon">🌬️</div><div>Quạt thông gió</div></div><div class="type-card" onclick="UI.selectDeviceType('heater')"><div class="type-icon">💡</div><div>Đèn sưởi/Úm</div></div><div class="type-card" onclick="UI.selectDeviceType('pump')"><div class="type-icon">💧</div><div>Bơm làm mát</div></div></div></div></div>
 
-        <div id="modal-config-device" class="modal-overlay hidden">
-            <div class="modal-box">
-                <div class="modal-header">
-                    <h3 id="config-title">Cấu hình thiết bị</h3><button class="close-btn"
-                        onclick="closeModal('modal-config-device')">✕</button>
-                </div>
-                <div class="modal-body">
-                    <div class="input-group"><label>Tên thiết bị</label><input type="text" id="dev-name"
-                            placeholder="Bỏ trống sẽ tự động đặt tên"></div>
-                    <div class="input-group"><label>Chân điều khiển (Hardware Pin)</label><select id="dev-pin"></select>
-                    </div>
-                    <div class="input-group"><label>Lắp đặt tại khu vực</label><select id="dev-zone"
-                            onchange="autoFillAnimalByZone()"></select></div>
-                    <div id="smart-animal-config">
-                        <div class="input-group"><label>Đối tượng (Gợi ý thông số)</label><select id="dev-animal"
-                                onchange="applySmartRecommendation()">
-                                <option value="none">-- Tùy chỉnh thủ công --</option>
-                                <option value="chicken_baby">Gà con (1-2 tuần)</option>
-                                <option value="chicken_adult">Gà lớn (Từ 4 tuần)</option>
-                                <option value="pig_baby">Lợn sơ sinh</option>
-                                <option value="pig">Heo thịt</option>
-                            </select></div>
-                        <div class="input-group"><label>Ngưỡng kích hoạt (<span
-                                    id="threshold-val">25</span>°C)</label><input type="range" id="dev-threshold"
-                                min="10" max="45" value="25"
-                                oninput="document.getElementById('threshold-val').innerText = this.value"></div>
-                    </div>
-                    <div class="advanced-config" id="config-cycle">
-                        <div class="d-flex-between"><label style="margin: 0; font-weight: 600;">Thông gió luân
-                                phiên</label><label class="toggle-switch"><input type="checkbox" id="dev-cycle-enable"
-                                    onchange="toggleCycleSettings(this.checked)"><span class="slider"></span></label>
-                        </div>
-                        <div id="cycle-timers" class="hidden mt-20 grid-2">
-                            <div class="input-group"><label>⏱️ Bật (phút)</label><input type="number" id="dev-cycle-on"
-                                    value="1"></div>
-                            <div class="input-group"><label>⏸️ Nghỉ (phút)</label><input type="number"
-                                    id="dev-cycle-off" value="5"></div>
-                        </div>
-                    </div><button class="btn-primary mt-20" onclick="saveDevice()">Lưu thiết bị</button>
-                </div>
-            </div>
-        </div>
+        <div id="modal-config-device" class="modal-overlay hidden"><div class="modal-box"><div class="modal-header"><h3 id="config-title">Cấu hình thiết bị</h3><button class="close-btn" onclick="UI.closeModal('modal-config-device')">✕</button></div><div class="modal-body"><div class="input-group"><label>Tên thiết bị</label><input type="text" id="dev-name" placeholder="Bỏ trống sẽ tự động đặt tên"></div><div class="input-group"><label>Chân điều khiển (Hardware Pin)</label><select id="dev-pin"></select></div><div class="input-group"><label>Lắp đặt tại khu vực</label><select id="dev-zone" onchange="UI.autoFillAnimalByZone()"></select></div><div id="smart-animal-config"><div class="input-group"><label>Đối tượng (Gợi ý thông số)</label><select id="dev-animal" onchange="UI.applySmartRecommendation()"><option value="none">-- Tùy chỉnh thủ công --</option><option value="chicken_baby">Gà con (1-2 tuần)</option><option value="chicken_adult">Gà lớn (Từ 4 tuần)</option><option value="pig_baby">Lợn sơ sinh</option><option value="pig">Heo thịt</option></select></div><div class="input-group"><label>Ngưỡng kích hoạt (<span id="threshold-val">25</span>°C)</label><input type="range" id="dev-threshold" min="10" max="45" value="25" oninput="document.getElementById('threshold-val').innerText = this.value"></div></div><div class="advanced-config" id="config-cycle"><div class="d-flex-between"><label style="margin: 0; font-weight: 600;">Thông gió luân phiên</label><label class="toggle-switch"><input type="checkbox" id="dev-cycle-enable" onchange="UI.toggleCycleSettings(this.checked)"><span class="slider"></span></label></div><div id="cycle-timers" class="hidden mt-20 grid-2"><div class="input-group"><label>⏱️ Bật (phút)</label><input type="number" id="dev-cycle-on" value="1"></div><div class="input-group"><label>⏸️ Nghỉ (phút)</label><input type="number" id="dev-cycle-off" value="5"></div></div></div><button class="btn-primary mt-20" onclick="App.saveDevice()">Lưu thiết bị</button></div></div></div>
 
-        <div id="modal-confirm" class="modal-overlay hidden">
+        <div id="modal-alert" class="modal-overlay hidden" style="z-index: 10001;">
             <div class="modal-box" style="text-align: center; padding: 30px 20px;">
-                <div style="font-size: 40px; margin-bottom: 15px;">⚠️</div>
-                <h3 style="margin-bottom: 10px; color: #1f2937;">Xác nhận xóa</h3>
-                <p style="color: #6b7280; margin-bottom: 25px; font-size: 0.95rem;">Bạn có chắc chắn muốn xóa thiết bị
-                    này khỏi phần cứng (ESP)?</p>
-                <div class="grid-2"><button class="btn-sm btn-outline"
-                        style="padding: 12px; color: #6b7280; border-color: #d1d5db;"
-                        onclick="closeModal('modal-confirm')">Hủy</button><button class="btn-sm btn-primary"
-                        style="padding: 12px; background: #ef4444; border: none;" id="btn-confirm-delete">Xóa thiết
-                        bị</button></div>
+                <div id="alert-icon" style="font-size: 45px; margin-bottom: 15px;">ℹ️</div>
+                <h3 id="alert-title" style="margin-bottom: 10px; color: #1f2937;">Thông báo</h3>
+                <p id="alert-message" style="color: #6b7280; margin-bottom: 25px; font-size: 0.95rem; white-space: pre-line; line-height: 1.5;"></p>
+                <button class="btn-primary" onclick="UI.closeAlert()">Đóng</button>
             </div>
         </div>
 
-        <div id="loading" class="overlay hidden">
-            <div class="spinner"></div>
-            <p id="loading-text"
-                style="color: white; font-weight: bold; text-shadow: 0 1px 3px rgba(0,0,0,0.5); margin-top: 10px;">Đang
-                xử lý...</p>
+        <div id="modal-confirm" class="modal-overlay hidden" style="z-index: 10000;">
+            <div class="modal-box" style="text-align: center; padding: 30px 20px;">
+                <div id="confirm-icon" style="font-size: 45px; margin-bottom: 15px;">❓</div>
+                <h3 id="confirm-title" style="margin-bottom: 10px; color: #1f2937;">Xác nhận</h3>
+                <p id="confirm-message" style="color: #6b7280; margin-bottom: 25px; font-size: 0.95rem; white-space: pre-line; line-height: 1.5;"></p>
+                <div class="grid-2">
+                    <button class="btn-sm btn-outline" style="padding: 12px; color: #6b7280; border-color: #d1d5db;" onclick="UI.closeConfirm()">Hủy</button>
+                    <button class="btn-sm btn-primary" style="padding: 12px; border: none; background: #3b82f6;" id="btn-confirm-ok">Đồng ý</button>
+                </div>
+            </div>
         </div>
+        <div id="loading" class="overlay hidden"><div class="spinner"></div><p id="loading-text" style="color: white; font-weight: bold; text-shadow: 0 1px 3px rgba(0,0,0,0.5); margin-top: 10px;">Đang xử lý...</p></div>
 
-        <div id="pin-lock-overlay" class="modal-overlay hidden"
-            style="z-index: 9998; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
-            <div class="modal-box"
-                style="text-align: center; max-width: 350px; margin: 0 auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+        <div id="pin-lock-overlay" class="modal-overlay hidden" style="z-index: 9998; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
+            <div class="modal-box" style="text-align: center; max-width: 350px; margin: 0 auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
                 <div style="font-size: 50px; margin-bottom: 15px;">🔒</div>
                 <h3 style="margin-bottom: 10px; color: #1f2937; font-size: 1.5rem;">Bảo Mật Hệ Thống</h3>
-                <p style="color: #6b7280; margin-bottom: 25px; font-size: 0.95rem;">Vui lòng nhập mã PIN để truy cập.
-                </p>
+                <p style="color: #6b7280; margin-bottom: 25px; font-size: 0.95rem;">Vui lòng nhập mã PIN để truy cập.</p>
                 <div class="input-group">
-                    <input type="password" id="secret-pin-input" placeholder="------"
-                        style="text-align: center; font-size: 2rem; letter-spacing: 12px; font-weight: bold; padding: 15px; border-radius: 12px; border: 2px solid #e5e7eb; color: #111827;"
-                        maxlength="6" oninput="if(this.value.length === 6) checkPin()">
+                    <input type="password" id="secret-pin-input" placeholder="------" style="text-align: center; font-size: 2rem; letter-spacing: 12px; font-weight: bold; padding: 15px; border-radius: 12px; border: 2px solid #e5e7eb; color: #111827;" maxlength="6" oninput="if(this.value.length === 6) App.checkPin()">
                 </div>
-                <p id="pin-error-msg"
-                    style="color: #ef4444; font-size: 0.9rem; display: none; margin-top: 10px; margin-bottom: 5px; font-weight: 500;">
-                    ❌ Mã PIN không chính xác!</p>
-                <button class="btn-primary" id="btn-unlock" onclick="checkPin()"
-                    style="margin-top: 20px; font-size: 1.1rem; padding: 12px; transition: 0.3s;">Mở Khóa</button>
-                <p id="pin-status-msg"
-                    style="color: #3b82f6; font-size: 0.85rem; display: none; margin-top: 15px; font-weight: 500; line-height: 1.4;">
-                    ⏳ Đang kết nối mây<br>vui lòng chờ trong giây lát...</p>
+                <p id="pin-error-msg" style="color: #ef4444; font-size: 0.9rem; display: none; margin-top: 10px; margin-bottom: 5px; font-weight: 500;">❌ Mã PIN không chính xác!</p>
+                <button class="btn-primary" id="btn-unlock" onclick="App.checkPin()" style="margin-top: 20px; font-size: 1.1rem; padding: 12px; transition: 0.3s;">Mở Khóa</button>
+                <p id="pin-status-msg" style="color: #3b82f6; font-size: 0.85rem; display: none; margin-top: 15px; font-weight: 500; line-height: 1.4;">⏳ Đang kết nối mây<br>vui lòng chờ trong giây lát...</p>
             </div>
         </div>
     </div>
+
     <script src="js/paho-mqtt.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/network.js"></script>
+    <script src="js/ota.js"></script>
     <script src="js/app.js"></script>
 </body>
-
 </html>
