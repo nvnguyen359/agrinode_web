@@ -99,7 +99,6 @@ async function checkPin() {
 
     document.getElementById('pin-error-msg').style.display = 'none';
 
-    // --- XỬ LÝ OFFLINE (KHI ĐANG KẾT NỐI AP MODE / LOCAL LAN) ---
     if (isLocal) {
         showLoading("Đang xác thực mã PIN...");
         try {
@@ -115,7 +114,6 @@ async function checkPin() {
                 localStorage.setItem('agrinode_pin', currentPin);
                 document.getElementById('pin-lock-overlay').classList.add('hidden');
                 
-                // Sau khi đăng nhập local thành công, tải cấu hình thiết bị
                 await fetchLocalDevices(); 
                 hideLoading();
                 return;
@@ -132,7 +130,6 @@ async function checkPin() {
         }
     }
 
-    // --- XỬ LÝ ONLINE (KHI ĐIỀU KHIỂN TỪ XA QUA INTERNET) ---
     if (!isMqttConnected || !mqttClient) {
         document.getElementById('pin-status-msg').style.display = 'block'; 
         document.getElementById('btn-unlock').disabled = true; 
@@ -512,12 +509,39 @@ async function scanWiFi() {
 function saveWiFi(e) {
     e.preventDefault();
     if (!isLocal) return alert("Chỉ cấu hình WiFi khi dùng mạng LAN của mạch!");
-    const ssid = document.getElementById('wifi-ssid').value; const pass = document.getElementById('wifi-pass').value;
+    const ssid = document.getElementById('wifi-ssid').value; 
+    const pass = document.getElementById('wifi-pass').value;
     if(!ssid) return alert("Vui lòng chọn WiFi!");
-    showLoading(`Đang kết nối vào ${ssid}...`);
-    fetch('/api/wifi/save', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ ssid, pass }) 
-    }).then(res => res.json()).then(data => {
-        hideLoading(); alert("Đã lưu! Thiết bị sẽ khởi động lại với WiFi mới.");
-    }).catch(err => { hideLoading(); alert("Lỗi lưu cấu hình!"); });
+    
+    showLoading(`Đang cấu hình WiFi: ${ssid}...`);
+
+    // Tạo hàm điều hướng (áp dụng chung cho lúc try catch)
+    const handleRedirect = () => {
+        hideLoading();
+        // Cung cấp cho user 2 tùy chọn chuyển hướng
+        const useCloud = confirm("Đã lưu WiFi thành công! Mạch đang khởi động lại.\n\n[OK] Chuyển tới trang quản lý Cloud (GitHub Pages).\n[Cancel] Ở lại trang mạng nội bộ (agrinode.local).");
+        if (useCloud) {
+            window.location.href = "https://nvnguyen359.github.io/agrinode_web/";
+        } else {
+            // Mạch sẽ tự kích hoạt lại mDNS sau khi khởi động.
+            window.location.href = "http://agrinode.local";
+        }
+    };
+    
+    fetch('/api/wifi/save', { 
+        method: 'POST', 
+        headers: {'Content-Type': 'application/json'}, 
+        body: JSON.stringify({ ssid, pass }) 
+    })
+    .then(res => res.json())
+    .then(data => {
+        handleRedirect();
+    })
+    .catch(err => { 
+        // Khi ESP đổi qua STA (mạng trạm) để kết nối nhà bạn, điện thoại có thể bị văng khỏi WiFi AP của mạch 
+        // dẫn tới fetch bị catch ngay lập tức mặc dù lệnh save đã đến mạch. Mình catch để báo luôn.
+        handleRedirect();
+    });
 }
+
 function togglePassword() { const i = document.getElementById('wifi-pass'); i.type = (i.type === 'password') ? 'text' : 'password'; }
