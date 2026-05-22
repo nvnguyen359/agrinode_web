@@ -32,7 +32,6 @@ const UI = {
         const btnOk = document.getElementById('btn-confirm-ok');
         btnOk.style.background = isDanger ? '#ef4444' : '#3b82f6';
         
-        // Remove old event listener (Tránh trigger nhiều lần)
         const newBtn = btnOk.cloneNode(true);
         btnOk.parentNode.replaceChild(newBtn, btnOk);
         
@@ -47,6 +46,33 @@ const UI = {
     },
     openModal: function(id) { document.getElementById(id).classList.remove('hidden'); },
     closeModal: function(id) { document.getElementById(id).classList.add('hidden'); },
+
+    // --- QUẢN LÝ GIAO DIỆN VERSION (SOLID) ---
+    updateVersionUI: function(currentVer, newVer = null) {
+        // Cập nhật lên Header
+        const headerVer = document.getElementById('header-version');
+        if (headerVer) headerVer.innerText = `v${currentVer}`;
+
+        // Cập nhật ở trang Cài đặt
+        const setupVer = document.getElementById('current-version-text');
+        if (!setupVer) return;
+
+        if (newVer && newVer !== currentVer) {
+            setupVer.innerHTML = `Phiên bản: v${currentVer} <span style="color:var(--alert-color); font-weight:bold;">(Có bản mới: v${newVer})</span>`;
+        } else if (currentVer !== "Unknown") {
+            setupVer.innerText = `Phiên bản: v${currentVer} (Mới nhất)`;
+        } else {
+            setupVer.innerText = `Phiên bản: Đang tải...`;
+        }
+    },
+    toggleOtaBadge: function(show) {
+        const btn = document.getElementById('btn-ota-update');
+        const badge = document.getElementById('ota-badge');
+        if (btn && badge) {
+            btn.style.display = show ? 'block' : 'none';
+            badge.style.display = show ? 'block' : 'none';
+        }
+    },
 
     // --- RENDER LOGIC ---
     renderZones: function() {
@@ -154,7 +180,6 @@ const UI = {
     toggleCycleSettings: function(show) { document.getElementById('cycle-timers').className = show ? 'mt-20 grid-2' : 'hidden mt-20 grid-2'; },
     togglePassword: function() { const i = document.getElementById('wifi-pass'); i.type = (i.type === 'password') ? 'text' : 'password'; },
     
-    // HIỂN THỊ DANH SÁCH WIFI
     populateWiFiList: function(networks) {
         UI.hideLoading();
         const select = document.getElementById('wifi-ssid'); 

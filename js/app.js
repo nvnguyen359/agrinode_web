@@ -14,7 +14,7 @@ const App = {
                 
                 if (infoData.version) {
                     State.CURRENT_VERSION = infoData.version;
-                    document.getElementById('current-version-text').innerText = `Phiên bản: v${State.CURRENT_VERSION}`;
+                    UI.updateVersionUI(State.CURRENT_VERSION); // Update qua UI
                     if(!State.hasCheckedUpdate) { State.hasCheckedUpdate = true; setTimeout(OTA.autoCheckUpdate, 2000); }
                 }
             } catch (e) { App.loadDefaultPins(); }
@@ -190,12 +190,10 @@ const App = {
         Network.sendAction({ id: d.id, state: d.state }, null, null); 
     },
 
-    // ================= SỬA LẠI WIFI ĐỂ HỖ TRỢ CẢ LOCAL VÀ CLOUD =================
     scanWiFi: async function() {
         UI.showLoading("Đang ra lệnh quét mạng WiFi...");
         
         if (Config.isLocal) {
-            // Nếu là mạng nội bộ, dùng HTTP fetch trực tiếp
             try {
                 const res = await fetch('/api/wifi/scan');
                 const networks = await res.json();
@@ -204,7 +202,6 @@ const App = {
                 UI.hideLoading(); UI.showAlert("Lỗi", "Không thể quét được mạng từ mạch!", "❌");
             }
         } else {
-            // Nếu ở xa (GitHub Pages), gửi lệnh qua MQTT
             UI.showConfirm("Cảnh báo", "Bạn đang quét mạng qua Cloud. Quá trình này sẽ làm mạch tạm ngưng kết nối vài giây để quét sóng. Tiếp tục?", () => {
                 Network.sendAction({ cmd: "wifi_scan" }, "Đang yêu cầu ESP quét WiFi từ xa...");
             }, "📡");
@@ -219,13 +216,12 @@ const App = {
         
         const confirmMsg = Config.isLocal 
             ? `Cấu hình mạch kết nối vào WiFi: ${ssid}?` 
-            : `CẢNH BÁO NGUY HIỂM!\n\nBạn đang ra lệnh đổi WiFi TỪ XA. Nếu bạn nhập sai mật khẩu, mạch ESP sẽ bị mất kết nối vĩnh viễn và bạn phải ra tận nơi để sửa!\n\nBạn có chắc chắn mạch ESP "bắt" được sóng của WiFi [ ${ssid} ] không?`;
+            : `CẢNH BÁO NGUY HIỂM!\n\nBạn đang ra lệnh đổi WiFi TỪ XA. Nếu bạn nhập sai mật khẩu, mạch ESP sẽ bị mất kết nối vĩnh viễn và bạn phải ra tận nơi để sửa!\n\nBạn có chắc chắn mạch ESP bắt được sóng của WiFi [ ${ssid} ] không?`;
             
         UI.showConfirm("Xác nhận đổi WiFi", confirmMsg, () => {
             UI.showLoading(`Đang gửi lệnh cấu hình WiFi: ${ssid}...`);
 
             if (Config.isLocal) {
-                // HTTP cho mạng nội bộ
                 const handleRedirect = () => {
                     UI.hideLoading();
                     UI.showConfirm("Thành công", "Đã lưu WiFi! Mạch đang khởi động lại.\n\nBạn có muốn chuyển sang trang quản lý Cloud (GitHub Pages) không?", () => {
@@ -235,10 +231,9 @@ const App = {
                 fetch('/api/wifi/save', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ ssid, pass }) })
                 .then(res => res.json()).then(data => handleRedirect()).catch(err => handleRedirect());
             } else {
-                // MQTT cho Cloud
                 Network.sendAction({ cmd: "wifi_save", ssid: ssid, pass: pass }, "Đang gửi mật khẩu qua Cloud...");
             }
-        }, "⚠️", !Config.isLocal); // Nút màu đỏ nếu là Cloud
+        }, "⚠️", !Config.isLocal);
     },
 
     startStatusLoop: function() {

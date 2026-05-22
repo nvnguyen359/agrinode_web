@@ -9,7 +9,10 @@
 <body>
     <div id="app">
         <header class="app-header">
-            <h2>AgriNode</h2>
+            <h2 style="display: flex; align-items: baseline; gap: 8px;">
+                AgriNode 
+                <span id="header-version" style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">v--</span>
+            </h2>
             <div style="display: flex; align-items: center; gap: 15px;">
                 <div id="btn-ota-update" style="cursor: pointer; position: relative; display: none;" onclick="OTA.promptUpdate()">
                     <svg viewBox="0 0 24 24" width="24" height="24" stroke="var(--primary)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
@@ -110,6 +113,7 @@
                 </div>
             </div>
         </div>
+
         <div id="loading" class="overlay hidden"><div class="spinner"></div><p id="loading-text" style="color: white; font-weight: bold; text-shadow: 0 1px 3px rgba(0,0,0,0.5); margin-top: 10px;">Đang xử lý...</p></div>
 
         <div id="pin-lock-overlay" class="modal-overlay hidden" style="z-index: 9998; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">

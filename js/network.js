@@ -52,7 +52,6 @@ const Network = {
     },
 
     handleConfigMessage: function(data) {
-        // Xử lý phản hồi quét WiFi và lưu WiFi từ ESP gửi qua MQTT (Dành cho bản Cloud)
         if (data.cmd_response === "wifi_scan") {
             UI.populateWiFiList(data.networks || []);
             return;
@@ -60,23 +59,21 @@ const Network = {
         if (data.cmd_response === "wifi_save") {
             UI.hideLoading();
             if (data.success) {
-                UI.showAlert("Thành công", "Đã cấu hình WiFi thành công! Mạch đang khởi động lại.\n\nNếu sau 2 phút mạch không online lại, có thể do bạn đã nhập sai mật khẩu WiFi và bạn cần phải ra tận nơi để cấu hình lại.", "✅");
+                UI.showAlert("Thành công", "Đã cấu hình WiFi thành công! Mạch đang khởi động lại. Nếu mạch mất kết nối lâu, có thể do sai mật khẩu WiFi.", "✅");
             } else {
-                UI.showAlert("Thất bại", "Mạch không thể kết nối tới mạng WiFi này. Mạch sẽ tự động quay lại sử dụng cấu hình mạng cũ.", "❌");
+                UI.showAlert("Thất bại", "Không thể kết nối mạng WiFi này. Mạch sẽ quay lại cấu hình cũ.", "❌");
             }
             return;
         }
 
-        // Cập nhật phiên bản
         if (data.version) {
             State.CURRENT_VERSION = data.version;
-            document.getElementById('current-version-text').innerText = `Phiên bản: v${State.CURRENT_VERSION}`;
+            UI.updateVersionUI(State.CURRENT_VERSION); // Update qua UI
             if (!State.hasCheckedUpdate && !Config.isLocal) { 
                 State.hasCheckedUpdate = true; setTimeout(OTA.autoCheckUpdate, 2000); 
             }
         }
 
-        // Xử lý xác thực (Authentication)
         if (data.auth) {
             if (data.client_id && data.client_id !== Config.clientId) return;
             if (data.auth === "ok") {
@@ -101,7 +98,6 @@ const Network = {
             }
         }
 
-        // Cập nhật Thiết bị và Chân phần cứng
         let dataHasUpdated = false;
         if (data.hardware_pins) { 
             State.HARDWARE_PINS = data.hardware_pins.map(p => typeof p === 'object' ? p : {pin: p, label: 'D'+p});
@@ -141,7 +137,7 @@ const Network = {
                 clearInterval(checkItv); executeSend(); 
             } else if (retryCount > 15) {
                 clearInterval(checkItv); UI.hideLoading();
-                UI.showAlert("Mất kết nối", "Không thể kết nối Đám mây. Vui lòng kiểm tra lại trạng thái Internet!", "🔌");
+                UI.showAlert("Mất kết nối", "Không thể kết nối Đám mây. Vui lòng kiểm tra lại mạng!", "🔌");
             }
         }, 1000);
     }

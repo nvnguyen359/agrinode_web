@@ -8,21 +8,16 @@ const OTA = {
             const vData = await res.json();
             
             if (vData.version && vData.version !== State.CURRENT_VERSION) {
-                document.getElementById('current-version-text').innerHTML = `Phiên bản: v${State.CURRENT_VERSION} <span style="color:var(--alert-color); font-weight:bold;">(Có bản mới: v${vData.version})</span>`;
-                
-                // HIỂN THỊ ICON CẬP NHẬT TRÊN HEADER
-                const otaBtn = document.getElementById('btn-ota-update');
-                if (otaBtn) {
-                    otaBtn.style.display = 'block';
-                    document.getElementById('ota-badge').style.display = 'block';
-                }
+                UI.updateVersionUI(State.CURRENT_VERSION, vData.version);
+                UI.toggleOtaBadge(true); // Hiện nút có chấm đỏ
                 
                 const msg = `Phát hiện phiên bản mới: v${vData.version} (Hiện tại: v${State.CURRENT_VERSION})\n\n[Tính năng mới]\n${vData.release_notes || 'Bản vá lỗi'}\n\nBạn có muốn cập nhật ngay bây giờ không?`;
                 UI.showConfirm("Cập nhật phần mềm", msg, () => {
                     OTA.executeOtaUpdate(vData.firmware_url);
                 }, "🚀");
             } else {
-                document.getElementById('current-version-text').innerText = `Phiên bản: v${State.CURRENT_VERSION} (Mới nhất)`;
+                UI.updateVersionUI(State.CURRENT_VERSION); // Update lại UI "Mới nhất"
+                UI.toggleOtaBadge(false);
             }
         } catch (e) { console.log("Auto update check ngầm bị lỗi: ", e); }
     },
@@ -38,8 +33,13 @@ const OTA = {
             if (!vData.version || !vData.firmware_url) return UI.showAlert("Lỗi", "File JSON trên GitHub không hợp lệ.", "❌");
             
             if (vData.version === State.CURRENT_VERSION) {
+                UI.updateVersionUI(State.CURRENT_VERSION);
+                UI.toggleOtaBadge(false);
                 return UI.showAlert("Thông báo", `🎉 Thiết bị của bạn đang ở phiên bản mới nhất (v${State.CURRENT_VERSION}). Không cần cập nhật!`, "✅");
             }
+
+            UI.updateVersionUI(State.CURRENT_VERSION, vData.version);
+            UI.toggleOtaBadge(true);
 
             const msg = `Phát hiện phiên bản mới: v${vData.version}\n\n[Tính năng mới]\n${vData.release_notes || 'Bản vá lỗi'}\n\nBạn có muốn cập nhật thiết bị ngay bây giờ không?`;
             UI.showConfirm("Cập nhật phần mềm", msg, () => {
@@ -64,16 +64,18 @@ const OTA = {
                 const data = await res.json();
                 if (data.success) {
                     UI.showAlert("Đang nạp...", "Mạch đang tải và cập nhật. Quá trình mất khoảng 1-2 phút, vui lòng không rút điện.", "⚙️");
+                    UI.toggleOtaBadge(false);
                 } else { UI.showAlert("Từ chối", "Mạch từ chối lệnh nạp!", "❌"); }
             } catch(e) {
                 UI.showAlert("Thành công", "Đã gửi lệnh! Mạch đang nạp và sẽ tự khởi động lại sau 1-2 phút.", "✅");
+                UI.toggleOtaBadge(false);
             }
             UI.hideLoading();
         } else {
             const payload = { cmd: "update", url: targetFirmwareUrl };
             Network.sendAction(payload, "Đang gửi lệnh OTA...", () => {
                 UI.showAlert("Đã gửi lệnh", "Lệnh nâng cấp đã gửi qua Cloud. Mạch sẽ tự tải code từ GitHub, vui lòng đợi 1-2 phút!", "☁️");
-                document.getElementById('btn-ota-update').style.display = 'none'; // Ẩn nút báo
+                UI.toggleOtaBadge(false);
             });
         }
     }
