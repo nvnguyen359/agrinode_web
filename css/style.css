@@ -25,7 +25,7 @@ body { background: var(--bg-color); color: var(--text-main); -webkit-tap-highlig
 }
 .chip.active { background: var(--primary); color: white; border-color: var(--primary); }
 
-#main-content { padding: 24px; }
+#main-content { padding: 24px 0px; }
 .page { display: none; opacity: 0; transform: translateY(10px); transition: 0.3s ease; }
 .page.active { display: block; opacity: 1; transform: translateY(0); }
 .section-title { font-size: 0.9rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; margin-bottom: 12px; }
