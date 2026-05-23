@@ -14,7 +14,7 @@ const App = {
                 
                 if (infoData.version) {
                     State.CURRENT_VERSION = infoData.version;
-                    UI.updateVersionUI(State.CURRENT_VERSION); // Update qua UI
+                    UI.updateVersionUI(State.CURRENT_VERSION);
                     if(!State.hasCheckedUpdate) { State.hasCheckedUpdate = true; setTimeout(OTA.autoCheckUpdate, 2000); }
                 }
             } catch (e) { App.loadDefaultPins(); }
@@ -32,7 +32,10 @@ const App = {
 
         Network.initMQTT();
         UI.navigate('dashboard');
+        
+        // KHỞI CHẠY 2 VÒNG LẶP NỀN
         App.startStatusLoop();
+        App.startCountdownLoop(); // Bật đồng hồ đếm ngược
     },
 
     loadDefaultPins: function() {
@@ -132,7 +135,7 @@ const App = {
         const selectedPin = document.getElementById('dev-pin').value; 
         if (!selectedPin) return UI.showAlert("Lỗi", "Vui lòng chọn chân GPIO!", "⚠️");
         let inputName = document.getElementById('dev-name').value.trim();
-        if (!inputName) { const pinObj = State.HARDWARE_PINS.find(p => parseInt(p.pin) === parseInt(selectedPin)); inputName = `${MasterData.deviceTypeNames[State.tempDeviceType]} (Chân ${pinObj ? pinObj.label : selectedPin})`; }
+        if (!inputName) { const pinObj = State.HARDWARE_PINS.find(p => parseInt(p.pin) === parseInt(selectedPin)); inputName = `${MasterData.deviceTypeNames[State.tempDeviceType]} (Chân ${pinObj ? pinObj.label.split(' ')[0] : selectedPin})`; }
         
         const isCycle = document.getElementById('dev-cycle-enable').checked;
         const deviceData = {
@@ -192,7 +195,6 @@ const App = {
 
     scanWiFi: async function() {
         UI.showLoading("Đang ra lệnh quét mạng WiFi...");
-        
         if (Config.isLocal) {
             try {
                 const res = await fetch('/api/wifi/scan');
@@ -250,6 +252,31 @@ const App = {
             } catch(e) { document.getElementById('connection-status').className = State.isMqttConnected ? 'status-dot online' : 'status-dot offline'; }
             finally { State.isFetchingStatus = false; }
         }, 5000);
+    },
+
+    // ================= VÒNG LẶP XỬ LÝ ĐỒNG HỒ ĐẾM NGƯỢC =================
+    startCountdownLoop: function() {
+        setInterval(() => {
+            if (State.devices.length === 0) return;
+            
+            State.devices.forEach(dev => {
+                if (dev.isCycleMode && dev.timeLeft !== undefined) {
+                    // Giảm dần giây
+                    if (dev.timeLeft > 0) dev.timeLeft--;
+                    
+                    const timerEl = document.getElementById(`timer-${dev.id}`);
+                    if (timerEl) {
+                        if (dev.timeLeft > 0) {
+                            const m = Math.floor(dev.timeLeft / 60);
+                            const s = dev.timeLeft % 60;
+                            timerEl.innerHTML = `⏳ Đảo trạng thái sau: ${m}p ${s}s`;
+                        } else {
+                            timerEl.innerHTML = `🔄 Đang chuyển đổi...`;
+                        }
+                    }
+                }
+            });
+        }, 1000);
     }
 };
 

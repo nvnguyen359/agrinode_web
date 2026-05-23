@@ -47,13 +47,10 @@ const UI = {
     openModal: function(id) { document.getElementById(id).classList.remove('hidden'); },
     closeModal: function(id) { document.getElementById(id).classList.add('hidden'); },
 
-    // --- QUẢN LÝ GIAO DIỆN VERSION (SOLID) ---
     updateVersionUI: function(currentVer, newVer = null) {
-        // Cập nhật lên Header
         const headerVer = document.getElementById('header-version');
         if (headerVer) headerVer.innerText = `v${currentVer}`;
 
-        // Cập nhật ở trang Cài đặt
         const setupVer = document.getElementById('current-version-text');
         if (!setupVer) return;
 
@@ -97,7 +94,9 @@ const UI = {
         let html = ''; let hasAvailable = false;
         State.HARDWARE_PINS.forEach(item => {
             if (!usedPins.includes(parseInt(item.pin)) || parseInt(item.pin) === parseInt(currentPin)) {
-                html += `<option value="${item.pin}" ${parseInt(item.pin) === parseInt(currentPin) ? 'selected' : ''}>Chân ${item.label} (GPIO ${item.pin})</option>`;
+                // Tách label chi tiết từ Config.h để hiển thị đẹp hơn
+                const displayLabel = item.label.includes('(') ? item.label : `Chân ${item.label} (GPIO ${item.pin})`;
+                html += `<option value="${item.pin}" ${parseInt(item.pin) === parseInt(currentPin) ? 'selected' : ''}>${displayLabel}</option>`;
                 hasAvailable = true;
             }
         });
@@ -118,20 +117,35 @@ const UI = {
         });
         container.innerHTML = html || '<div class="empty-state">Khu vực này trống.</div>';
     },
+
+    // THIẾT KẾ LẠI CARD ĐỂ CHỨA ĐỒNG HỒ ĐẾM NGƯỢC
     createDeviceCard: function(dev) {
         const isOn = dev.state === 'ON';
         let statusText = isOn ? 'Đang chạy' : 'Đã tắt';
         let statusIcon = dev.isCycleMode ? (isOn ? '<span class="icon-pulse icon-spin">🔄</span>' : '<span class="icon-pulse">🔄</span>') : '';
-        if (dev.isCycleMode) statusText = `Luân phiên (${dev.cycleOn}p/${dev.cycleOff}p) - ${isOn ? 'Đang quay' : 'Đang nghỉ'}`;
+        let timerHtml = ''; // Box chứa đồng hồ
+
+        if (dev.isCycleMode) { 
+            statusText = `Luân phiên (${dev.cycleOn}p/${dev.cycleOff}p) - ${isOn ? 'Đang quay' : 'Đang nghỉ'}`;
+            // Khung chứa đồng hồ được gán ID để update mỗi giây
+            timerHtml = `<div id="timer-${dev.id}" style="color: var(--primary); font-weight: 600; margin-top: 6px; font-size: 0.85rem; display:flex; gap: 5px; align-items: center;">⏳ Đang đồng bộ thời gian...</div>`;
+        }
+        
         const pinObj = State.HARDWARE_PINS.find(p => parseInt(p.pin) === parseInt(dev.pin));
+        const shortPinLabel = pinObj ? pinObj.label.split(' ')[0] : `GPIO ${dev.pin}`;
+
         return `
         <div class="control-card" style="flex-direction: column; align-items: stretch; gap: 12px;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div class="control-info">
-                    <div class="device-icon ${isOn ? `bg-${dev.type}-on` : ''}">${MasterData.svgs[dev.type].replace('{ON_CLASS}', isOn ? 'on' : '')}</div>
-                    <div><div class="control-name">${dev.name}</div><div class="control-state">${statusIcon} <span>${statusText} (Chân ${pinObj ? pinObj.label : dev.pin})</span></div></div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div class="control-info" style="align-items: flex-start;">
+                    <div class="device-icon ${isOn ? `bg-${dev.type}-on` : ''}" style="margin-top: 2px;">${MasterData.svgs[dev.type].replace('{ON_CLASS}', isOn ? 'on' : '')}</div>
+                    <div>
+                        <div class="control-name">${dev.name}</div>
+                        <div class="control-state">${statusIcon} <span>${statusText} (${shortPinLabel})</span></div>
+                        ${timerHtml}
+                    </div>
                 </div>
-                <label class="toggle-switch">
+                <label class="toggle-switch" style="margin-top: 5px;">
                     <input type="checkbox" ${isOn ? 'checked' : ''} onchange="App.toggleRelay('${dev.id}', this.checked)">
                     <span class="slider"></span>
                 </label>
@@ -142,17 +156,27 @@ const UI = {
             </div>
         </div>`;
     },
+
+    // TIẾP NHẬN TIMELEFT TỪ SERVER
     updateTelemetryUI: function(data) {
         if(data.temp !== undefined) document.getElementById('val-temp').innerText = data.temp;
         if(data.hum !== undefined) document.getElementById('val-hum').innerText = data.hum;
         const z = MasterData.zones.find(x => x.id === State.activeZone); const cardTemp = document.getElementById('card-temp');
         if (State.activeZone !== 'all' && z.alertTemp > 0 && parseFloat(data.temp) < z.alertTemp) cardTemp.classList.add('alert-card'); else cardTemp.classList.remove('alert-card');
+        
         let changed = false;
-        if (data.devices) { data.devices.forEach(r => { const dev = State.devices.find(d => d.id === r.id); if(dev && dev.state !== r.state) { dev.state = r.state; changed = true; } }); }
+        if (data.devices) { 
+            data.devices.forEach(r => { 
+                const dev = State.devices.find(d => d.id === r.id); 
+                if(dev) {
+                    if (dev.state !== r.state) { dev.state = r.state; changed = true; }
+                    if (r.timeLeft !== undefined) dev.timeLeft = r.timeLeft; // Lưu thời gian còn lại vào State
+                } 
+            }); 
+        }
         if(changed) UI.renderDevices();
     },
 
-    // --- CÁC HÀM XỬ LÝ FORM ---
     openDeviceModal: function() { State.editingDeviceId = null; UI.openModal('modal-select-type'); },
     selectDeviceType: function(type) {
         State.tempDeviceType = type; UI.closeModal('modal-select-type'); document.getElementById('dev-name').value = '';
