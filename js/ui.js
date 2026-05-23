@@ -20,7 +20,9 @@ const UI = {
         document.getElementById('alert-icon').innerText = icon;
         document.getElementById('modal-alert').classList.remove('hidden');
     },
-    closeAlert: function() { document.getElementById('modal-alert').classList.add('hidden'); },
+    closeAlert: function() {
+        document.getElementById('modal-alert').classList.add('hidden');
+    },
     showConfirm: function(title, message, onConfirm, icon = '❓', isDanger = false) {
         document.getElementById('confirm-title').innerText = title;
         document.getElementById('confirm-message').innerText = message;
@@ -38,23 +40,62 @@ const UI = {
         });
         document.getElementById('modal-confirm').classList.remove('hidden');
     },
-    closeConfirm: function() { document.getElementById('modal-confirm').classList.add('hidden'); },
+    closeConfirm: function() {
+        document.getElementById('modal-confirm').classList.add('hidden');
+    },
     openModal: function(id) { document.getElementById(id).classList.remove('hidden'); },
     closeModal: function(id) { document.getElementById(id).classList.add('hidden'); },
 
-    // BỔ SUNG GIAO DIỆN HIỂN THỊ TIẾN TRÌNH OTA
+    // BẬT TIẾN TRÌNH OTA TỪ THỰC TẾ
     showOtaProgress: function(percent) {
-        UI.closeConfirm(); // Đóng mọi cảnh báo đang che lấp
-        document.getElementById('modal-ota-progress').classList.remove('hidden');
-        document.getElementById('ota-progress-bar').style.width = percent + '%';
-        document.getElementById('ota-progress-text').innerText = percent + '%';
+        UI.closeConfirm();
+        document.getElementById('header-normal').style.display = 'none';
+        document.getElementById('header-ota').style.display = 'flex';
+        
+        // Hủy bộ đếm fake nếu có tín hiệu % thật từ mạch gửi lên qua MQTT
+        if(window.fakeOtaInterval) { clearInterval(window.fakeOtaInterval); window.fakeOtaInterval = null; }
+
+        document.getElementById('header-ota-bar').style.width = percent + '%';
+        document.getElementById('header-ota-percent').innerText = percent + '%';
+        
         if (percent >= 100) {
-            document.getElementById('ota-progress-text').innerText = "Thành công! Đang khởi động lại...";
+            document.getElementById('header-ota-text').innerText = "Thành công! Đang khởi động lại...";
+            document.getElementById('header-ota-percent').innerText = "OK";
             setTimeout(() => { window.location.reload(); }, 5000);
         }
     },
 
-    // FIX HIỂN THỊ "Đang tải..." THAY VÌ "v--" KHI CHƯA CÓ DỮ LIỆU
+    // BẬT GIẢ LẬP TIẾN TRÌNH TRÁNH BỊ ĐƠ UI
+    startFakeOtaProgress: function() {
+        UI.closeConfirm();
+        document.getElementById('header-normal').style.display = 'none';
+        document.getElementById('header-ota').style.display = 'flex';
+        
+        let fakePercent = 0;
+        document.getElementById('header-ota-bar').style.width = '0%';
+        document.getElementById('header-ota-percent').innerText = '0%';
+        document.getElementById('header-ota-text').innerText = "☁️ Đang tải và nạp Firmware...";
+        
+        if(window.fakeOtaInterval) clearInterval(window.fakeOtaInterval);
+        
+        // Giả lập tiến trình: mỗi 0.8s tăng 1%, dừng lại ở 95% đợi mạch hoàn tất và khởi động lại
+        window.fakeOtaInterval = setInterval(() => {
+            if (fakePercent < 95) {
+                fakePercent += 1;
+                document.getElementById('header-ota-bar').style.width = fakePercent + '%';
+                document.getElementById('header-ota-percent').innerText = fakePercent + '%';
+            } else {
+                document.getElementById('header-ota-text').innerText = "⏳ Đang khởi động lại ESP...";
+            }
+        }, 800);
+        
+        // Tự động tải lại trang sau 2 phút nếu quá trình nạp lâu
+        setTimeout(() => {
+            if(window.fakeOtaInterval) clearInterval(window.fakeOtaInterval);
+            window.location.reload();
+        }, 120000);
+    },
+
     updateVersionUI: function(currentVer, newVer = null) {
         const headerVer = document.getElementById('header-version');
         if (headerVer) headerVer.innerText = (currentVer && currentVer !== "Unknown") ? `v${currentVer}` : 'Đang tải...';
@@ -132,7 +173,6 @@ const UI = {
 
         if (dev.isCycleMode) { 
             statusText = `Luân phiên (${dev.cycleOn}p/${dev.cycleOff}p) - ${isOn ? 'Đang bật' : 'Đang nghỉ'}`;
-            // FORMAT KHUNG HIỂN THỊ ĐẾM NGƯỢC
             timerHtml = `<div id="timer-${dev.id}" style="color: var(--text-main); margin-top: 6px; font-size: 0.85rem; display:flex; gap: 5px; align-items: center; background: #fef2f2; border: 1px dashed #fca5a5; padding: 4px 8px; border-radius: 6px; width: fit-content;">⏳ Đang đồng bộ...</div>`;
         }
         

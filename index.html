@@ -8,17 +8,29 @@
 </head>
 <body>
     <div id="app">
-        <header class="app-header">
-            <h2 style="display: flex; align-items: baseline; gap: 8px;">
-                AgriNode 
-                <span id="header-version" style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">v--</span>
-            </h2>
-            <div style="display: flex; align-items: center; gap: 15px;">
-                <div id="btn-ota-update" style="cursor: pointer; position: relative; display: none;" onclick="OTA.promptUpdate()">
-                    <svg viewBox="0 0 24 24" width="24" height="24" stroke="var(--primary)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                    <span id="ota-badge" style="position:absolute; top:-4px; right:-4px; width:10px; height:10px; background:var(--alert-color); border-radius:50%;"></span>
+        <header class="app-header" id="app-header">
+            <div id="header-normal" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                <h2 style="display: flex; align-items: baseline; gap: 8px;">
+                    AgriNode 
+                    <span id="header-version" style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">v--</span>
+                </h2>
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <div id="btn-ota-update" style="cursor: pointer; position: relative; display: none;" onclick="OTA.promptUpdate()">
+                        <svg viewBox="0 0 24 24" width="24" height="24" stroke="var(--primary)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        <span id="ota-badge" style="position:absolute; top:-4px; right:-4px; width:10px; height:10px; background:var(--alert-color); border-radius:50%;"></span>
+                    </div>
+                    <div id="connection-status" class="status-dot offline"></div>
                 </div>
-                <div id="connection-status" class="status-dot offline"></div>
+            </div>
+    
+            <div id="header-ota" style="display: none; width: 100%; flex-direction: column; gap: 6px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; font-weight: 600; color: var(--primary-dark);">
+                    <span id="header-ota-text">☁️ Đang tải bản cập nhật...</span>
+                    <span id="header-ota-percent">0%</span>
+                </div>
+                <div style="width: 100%; background: #e5e7eb; border-radius: 4px; height: 8px; overflow: hidden;">
+                    <div id="header-ota-bar" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.3s ease-out;"></div>
+                </div>
             </div>
         </header>
 
@@ -115,17 +127,7 @@
         </div>
 
         <div id="loading" class="overlay hidden"><div class="spinner"></div><p id="loading-text" style="color: white; font-weight: bold; text-shadow: 0 1px 3px rgba(0,0,0,0.5); margin-top: 10px;">Đang xử lý...</p></div>
-<div id="modal-ota-progress" class="modal-overlay hidden" style="z-index: 10002;">
-            <div class="modal-box" style="text-align: center; padding: 30px 20px;">
-                <div style="font-size: 45px; margin-bottom: 15px;">☁️</div>
-                <h3 style="margin-bottom: 10px; color: #1f2937;">Đang tải bản cập nhật</h3>
-                <div style="width: 100%; background: #e5e7eb; border-radius: 10px; height: 20px; overflow: hidden; margin: 20px 0; border: 1px solid #d1d5db;">
-                    <div id="ota-progress-bar" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.3s ease-out;"></div>
-                </div>
-                <p id="ota-progress-text" style="font-weight: bold; color: var(--primary); font-size: 1.2rem;">0%</p>
-                <p style="color: #6b7280; font-size: 0.85rem; margin-top: 10px;">Vui lòng không ngắt điện mạch trong quá trình này!</p>
-            </div>
-        </div>
+
         <div id="pin-lock-overlay" class="modal-overlay hidden" style="z-index: 9998; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
             <div class="modal-box" style="text-align: center; max-width: 350px; margin: 0 auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
                 <div style="font-size: 50px; margin-bottom: 15px;">🔒</div>

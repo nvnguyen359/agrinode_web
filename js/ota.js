@@ -7,7 +7,6 @@ const OTA = {
             const res = await fetch(checkUrl, { cache: "no-store" });
             const vData = await res.json();
             
-            // Xử lý cứng: Nếu phiên bản trên mạch != phiên bản trên Github thì mới hiển thị prompt báo mới.
             if (vData.version && vData.version !== State.CURRENT_VERSION) {
                 UI.updateVersionUI(State.CURRENT_VERSION, vData.version);
                 UI.toggleOtaBadge(true); 
@@ -54,7 +53,8 @@ const OTA = {
     },
 
     executeOtaUpdate: async function(targetFirmwareUrl) {
-        UI.showOtaProgress(0); // BẬT MÀN HÌNH CHỜ TIẾN TRÌNH
+        // Bật giao diện tiến trình trên Header ngay khi bấm nút (kích hoạt giả lập chống đơ)
+        UI.startFakeOtaProgress(); 
 
         if (Config.isLocal) {
             try {
@@ -65,11 +65,13 @@ const OTA = {
                 });
                 const data = await res.json();
                 if (!data.success) {
-                    UI.closeModal('modal-ota-progress');
+                    if(window.fakeOtaInterval) clearInterval(window.fakeOtaInterval);
+                    document.getElementById('header-normal').style.display = 'flex';
+                    document.getElementById('header-ota').style.display = 'none';
                     UI.showAlert("Từ chối", "Mạch từ chối lệnh nạp!", "❌");
                 }
             } catch(e) { 
-                // Vẫn đang nạp, chờ MQTT bắn tiến trình tới
+                // Bỏ qua bắt lỗi vì khi mạch đang nạp, Web truy cập cục bộ Local sẽ tự động rớt kết nối
             }
         } else {
             const payload = { cmd: "update", url: targetFirmwareUrl };
