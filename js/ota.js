@@ -7,16 +7,17 @@ const OTA = {
             const res = await fetch(checkUrl, { cache: "no-store" });
             const vData = await res.json();
             
+            // Xử lý cứng: Nếu phiên bản trên mạch != phiên bản trên Github thì mới hiển thị prompt báo mới.
             if (vData.version && vData.version !== State.CURRENT_VERSION) {
                 UI.updateVersionUI(State.CURRENT_VERSION, vData.version);
-                UI.toggleOtaBadge(true); // Hiện nút có chấm đỏ
+                UI.toggleOtaBadge(true); 
                 
                 const msg = `Phát hiện phiên bản mới: v${vData.version} (Hiện tại: v${State.CURRENT_VERSION})\n\n[Tính năng mới]\n${vData.release_notes || 'Bản vá lỗi'}\n\nBạn có muốn cập nhật ngay bây giờ không?`;
                 UI.showConfirm("Cập nhật phần mềm", msg, () => {
                     OTA.executeOtaUpdate(vData.firmware_url);
                 }, "🚀");
             } else {
-                UI.updateVersionUI(State.CURRENT_VERSION); // Update lại UI "Mới nhất"
+                UI.updateVersionUI(State.CURRENT_VERSION); 
                 UI.toggleOtaBadge(false);
             }
         } catch (e) { console.log("Auto update check ngầm bị lỗi: ", e); }
@@ -53,8 +54,9 @@ const OTA = {
     },
 
     executeOtaUpdate: async function(targetFirmwareUrl) {
+        UI.showOtaProgress(0); // BẬT MÀN HÌNH CHỜ TIẾN TRÌNH
+
         if (Config.isLocal) {
-            UI.showLoading("Đang ra lệnh nạp firmware...");
             try {
                 const res = await fetch('/api/ota/cloud', {
                     method: 'POST',
@@ -62,19 +64,16 @@ const OTA = {
                     body: JSON.stringify({ url: targetFirmwareUrl })
                 });
                 const data = await res.json();
-                if (data.success) {
-                    UI.showAlert("Đang nạp...", "Mạch đang tải và cập nhật. Quá trình mất khoảng 1-2 phút, vui lòng không rút điện.", "⚙️");
-                    UI.toggleOtaBadge(false);
-                } else { UI.showAlert("Từ chối", "Mạch từ chối lệnh nạp!", "❌"); }
-            } catch(e) {
-                UI.showAlert("Thành công", "Đã gửi lệnh! Mạch đang nạp và sẽ tự khởi động lại sau 1-2 phút.", "✅");
-                UI.toggleOtaBadge(false);
+                if (!data.success) {
+                    UI.closeModal('modal-ota-progress');
+                    UI.showAlert("Từ chối", "Mạch từ chối lệnh nạp!", "❌");
+                }
+            } catch(e) { 
+                // Vẫn đang nạp, chờ MQTT bắn tiến trình tới
             }
-            UI.hideLoading();
         } else {
             const payload = { cmd: "update", url: targetFirmwareUrl };
-            Network.sendAction(payload, "Đang gửi lệnh OTA...", () => {
-                UI.showAlert("Đã gửi lệnh", "Lệnh nâng cấp đã gửi qua Cloud. Mạch sẽ tự tải code từ GitHub, vui lòng đợi 1-2 phút!", "☁️");
+            Network.sendAction(payload, null, () => {
                 UI.toggleOtaBadge(false);
             });
         }

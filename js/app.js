@@ -33,9 +33,8 @@ const App = {
         Network.initMQTT();
         UI.navigate('dashboard');
         
-        // KHỞI CHẠY 2 VÒNG LẶP NỀN
         App.startStatusLoop();
-        App.startCountdownLoop(); // Bật đồng hồ đếm ngược
+        App.startCountdownLoop();
     },
 
     loadDefaultPins: function() {
@@ -83,7 +82,13 @@ const App = {
             const res = await fetch('/api/devices', { signal: controller.signal });
             clearTimeout(timeoutId);
             if (res.ok) { 
-                State.devices = await res.json(); 
+                const data = await res.json();
+                // FIX: Support cả JSON chuẩn mới có root node "devices"
+                State.devices = data.devices ? data.devices : data; 
+                if(data.version) {
+                    State.CURRENT_VERSION = data.version;
+                    UI.updateVersionUI(State.CURRENT_VERSION);
+                }
                 UI.renderZones(); UI.renderDevices(); await App.checkAndRestoreBackup(); 
             }
         } catch(e) {}
@@ -254,14 +259,12 @@ const App = {
         }, 5000);
     },
 
-    // ================= VÒNG LẶP XỬ LÝ ĐỒNG HỒ ĐẾM NGƯỢC =================
     startCountdownLoop: function() {
         setInterval(() => {
             if (State.devices.length === 0) return;
             
             State.devices.forEach(dev => {
                 if (dev.isCycleMode && dev.timeLeft !== undefined) {
-                    // Giảm dần giây
                     if (dev.timeLeft > 0) dev.timeLeft--;
                     
                     const timerEl = document.getElementById(`timer-${dev.id}`);
@@ -269,7 +272,8 @@ const App = {
                         if (dev.timeLeft > 0) {
                             const m = Math.floor(dev.timeLeft / 60);
                             const s = dev.timeLeft % 60;
-                            timerEl.innerHTML = `⏳ Đảo trạng thái sau: ${m}p ${s}s`;
+                            // Format đẹp hơn cho bộ đếm
+                            timerEl.innerHTML = `⏳ Đảo trạng thái sau: <strong style="color: #ef4444; margin-left: 5px;">${m}p ${s}s</strong>`;
                         } else {
                             timerEl.innerHTML = `🔄 Đang chuyển đổi...`;
                         }

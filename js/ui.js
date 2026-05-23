@@ -14,16 +14,13 @@ const UI = {
         document.getElementById('nav-' + id).classList.add('active');
     },
 
-    // --- CUSTOM MODALS ---
     showAlert: function(title, message, icon = 'ℹ️') {
         document.getElementById('alert-title').innerText = title;
         document.getElementById('alert-message').innerText = message;
         document.getElementById('alert-icon').innerText = icon;
         document.getElementById('modal-alert').classList.remove('hidden');
     },
-    closeAlert: function() {
-        document.getElementById('modal-alert').classList.add('hidden');
-    },
+    closeAlert: function() { document.getElementById('modal-alert').classList.add('hidden'); },
     showConfirm: function(title, message, onConfirm, icon = '❓', isDanger = false) {
         document.getElementById('confirm-title').innerText = title;
         document.getElementById('confirm-message').innerText = message;
@@ -41,20 +38,31 @@ const UI = {
         });
         document.getElementById('modal-confirm').classList.remove('hidden');
     },
-    closeConfirm: function() {
-        document.getElementById('modal-confirm').classList.add('hidden');
-    },
+    closeConfirm: function() { document.getElementById('modal-confirm').classList.add('hidden'); },
     openModal: function(id) { document.getElementById(id).classList.remove('hidden'); },
     closeModal: function(id) { document.getElementById(id).classList.add('hidden'); },
 
+    // BỔ SUNG GIAO DIỆN HIỂN THỊ TIẾN TRÌNH OTA
+    showOtaProgress: function(percent) {
+        UI.closeConfirm(); // Đóng mọi cảnh báo đang che lấp
+        document.getElementById('modal-ota-progress').classList.remove('hidden');
+        document.getElementById('ota-progress-bar').style.width = percent + '%';
+        document.getElementById('ota-progress-text').innerText = percent + '%';
+        if (percent >= 100) {
+            document.getElementById('ota-progress-text').innerText = "Thành công! Đang khởi động lại...";
+            setTimeout(() => { window.location.reload(); }, 5000);
+        }
+    },
+
+    // FIX HIỂN THỊ "Đang tải..." THAY VÌ "v--" KHI CHƯA CÓ DỮ LIỆU
     updateVersionUI: function(currentVer, newVer = null) {
         const headerVer = document.getElementById('header-version');
-        if (headerVer) headerVer.innerText = `v${currentVer}`;
+        if (headerVer) headerVer.innerText = (currentVer && currentVer !== "Unknown") ? `v${currentVer}` : 'Đang tải...';
 
         const setupVer = document.getElementById('current-version-text');
         if (!setupVer) return;
 
-        if (newVer && newVer !== currentVer) {
+        if (newVer && newVer !== currentVer && currentVer !== "Unknown") {
             setupVer.innerHTML = `Phiên bản: v${currentVer} <span style="color:var(--alert-color); font-weight:bold;">(Có bản mới: v${newVer})</span>`;
         } else if (currentVer !== "Unknown") {
             setupVer.innerText = `Phiên bản: v${currentVer} (Mới nhất)`;
@@ -71,7 +79,6 @@ const UI = {
         }
     },
 
-    // --- RENDER LOGIC ---
     renderZones: function() {
         const container = document.getElementById('zone-container');
         const usedZoneIds = new Set(State.devices.map(d => d.zone));
@@ -94,7 +101,6 @@ const UI = {
         let html = ''; let hasAvailable = false;
         State.HARDWARE_PINS.forEach(item => {
             if (!usedPins.includes(parseInt(item.pin)) || parseInt(item.pin) === parseInt(currentPin)) {
-                // Tách label chi tiết từ Config.h để hiển thị đẹp hơn
                 const displayLabel = item.label.includes('(') ? item.label : `Chân ${item.label} (GPIO ${item.pin})`;
                 html += `<option value="${item.pin}" ${parseInt(item.pin) === parseInt(currentPin) ? 'selected' : ''}>${displayLabel}</option>`;
                 hasAvailable = true;
@@ -118,17 +124,16 @@ const UI = {
         container.innerHTML = html || '<div class="empty-state">Khu vực này trống.</div>';
     },
 
-    // THIẾT KẾ LẠI CARD ĐỂ CHỨA ĐỒNG HỒ ĐẾM NGƯỢC
     createDeviceCard: function(dev) {
         const isOn = dev.state === 'ON';
         let statusText = isOn ? 'Đang chạy' : 'Đã tắt';
         let statusIcon = dev.isCycleMode ? (isOn ? '<span class="icon-pulse icon-spin">🔄</span>' : '<span class="icon-pulse">🔄</span>') : '';
-        let timerHtml = ''; // Box chứa đồng hồ
+        let timerHtml = ''; 
 
         if (dev.isCycleMode) { 
-            statusText = `Luân phiên (${dev.cycleOn}p/${dev.cycleOff}p) - ${isOn ? 'Đang quay' : 'Đang nghỉ'}`;
-            // Khung chứa đồng hồ được gán ID để update mỗi giây
-            timerHtml = `<div id="timer-${dev.id}" style="color: var(--primary); font-weight: 600; margin-top: 6px; font-size: 0.85rem; display:flex; gap: 5px; align-items: center;">⏳ Đang đồng bộ thời gian...</div>`;
+            statusText = `Luân phiên (${dev.cycleOn}p/${dev.cycleOff}p) - ${isOn ? 'Đang bật' : 'Đang nghỉ'}`;
+            // FORMAT KHUNG HIỂN THỊ ĐẾM NGƯỢC
+            timerHtml = `<div id="timer-${dev.id}" style="color: var(--text-main); margin-top: 6px; font-size: 0.85rem; display:flex; gap: 5px; align-items: center; background: #fef2f2; border: 1px dashed #fca5a5; padding: 4px 8px; border-radius: 6px; width: fit-content;">⏳ Đang đồng bộ...</div>`;
         }
         
         const pinObj = State.HARDWARE_PINS.find(p => parseInt(p.pin) === parseInt(dev.pin));
@@ -157,7 +162,6 @@ const UI = {
         </div>`;
     },
 
-    // TIẾP NHẬN TIMELEFT TỪ SERVER
     updateTelemetryUI: function(data) {
         if(data.temp !== undefined) document.getElementById('val-temp').innerText = data.temp;
         if(data.hum !== undefined) document.getElementById('val-hum').innerText = data.hum;
@@ -170,7 +174,7 @@ const UI = {
                 const dev = State.devices.find(d => d.id === r.id); 
                 if(dev) {
                     if (dev.state !== r.state) { dev.state = r.state; changed = true; }
-                    if (r.timeLeft !== undefined) dev.timeLeft = r.timeLeft; // Lưu thời gian còn lại vào State
+                    if (r.timeLeft !== undefined) dev.timeLeft = r.timeLeft;
                 } 
             }); 
         }
