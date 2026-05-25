@@ -7,7 +7,6 @@ const App = {
             try {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 3000);
-                // CHỐNG CACHE API BẰNG THỜI GIAN THỰC
                 const infoRes = await fetch('/api/info?_t=' + Date.now(), { signal: controller.signal });
                 clearTimeout(timeoutId);
                 const infoData = await infoRes.json();
@@ -21,7 +20,6 @@ const App = {
             } catch (e) { console.warn("Lỗi tải API /info", e); }
             
             try {
-                // CHỐNG CACHE 
                 const resSettings = await fetch('/api/settings?_t=' + Date.now());
                 if (resSettings.ok) {
                     State.settings = await resSettings.json();
@@ -82,7 +80,6 @@ const App = {
         try {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 3000);
-            // CHỐNG CACHE
             const res = await fetch('/api/devices?_t=' + Date.now(), { signal: controller.signal });
             clearTimeout(timeoutId);
             if (res.ok) { 
@@ -142,14 +139,22 @@ const App = {
     saveDevice: async function() {
         const selectedPin = document.getElementById('dev-pin').value; 
         if (!selectedPin) return UI.showAlert("Lỗi", "Vui lòng chọn chân GPIO!", "⚠️");
-        let inputName = document.getElementById('dev-name').value.trim();
-        if (!inputName) { const pinObj = State.HARDWARE_PINS.find(p => parseInt(p.pin) === parseInt(selectedPin)); inputName = `${MasterData.deviceTypeNames[State.tempDeviceType]} (Chân ${pinObj ? pinObj.label.split(' ')[0] : selectedPin})`; }
+        
+        // TỰ ĐỘNG TẠO TÊN THEO CÔNG THỨC: "Loại thiết bị (Chân D...)"
+        const pinObj = State.HARDWARE_PINS.find(p => parseInt(p.pin) === parseInt(selectedPin));
+        const shortPinLabel = pinObj ? pinObj.label.split(' ')[0] : `GPIO ${selectedPin}`;
+        const generatedName = `${MasterData.deviceTypeNames[State.tempDeviceType]} (${shortPinLabel})`;
         
         const isCycle = document.getElementById('dev-cycle-enable').checked;
         const deviceData = {
             id: State.editingDeviceId ? State.editingDeviceId : 'dev_' + Date.now(),
-            type: State.tempDeviceType, name: inputName, pin: parseInt(selectedPin), zone: document.getElementById('dev-zone').value, isCycleMode: isCycle,
-            cycleOn: isCycle ? parseInt(document.getElementById('dev-cycle-on').value) : 0, cycleOff: isCycle ? parseInt(document.getElementById('dev-cycle-off').value) : 0
+            type: State.tempDeviceType, 
+            name: generatedName, // Dùng tên tự động gen
+            pin: parseInt(selectedPin), 
+            zone: document.getElementById('dev-zone').value, 
+            isCycleMode: isCycle,
+            cycleOn: isCycle ? parseInt(document.getElementById('dev-cycle-on').value) : 0, 
+            cycleOff: isCycle ? parseInt(document.getElementById('dev-cycle-off').value) : 0
         };
 
         if (!Config.isLocal) {
@@ -188,26 +193,28 @@ const App = {
         }, "⚠️", true);
     },
 
-    saveSettings: async function() {
+    // THÊM CỜ SILENT ĐỂ TRÁNH RỚT FRAME KHI BẤM TICK CHECKBOX LUÂN PHIÊN
+    saveSettings: async function(silent = false) {
         if (!Config.isLocal) {
             let msg = JSON.parse(JSON.stringify(State.settings));
             msg.cmd = "save_settings";
-            Network.sendAction(msg, "Đang lưu cấu hình...", () => { UI.renderDevices(); }); 
+            // Gửi action nhưng truyền null vào loading message để nó chạy ngầm
+            Network.sendAction(msg, silent ? null : "Đang lưu cấu hình...", () => { UI.renderDevices(); }); 
             return;
         }
 
-        UI.showLoading("Đang lưu...");
+        if(!silent) UI.showLoading("Đang lưu...");
         try {
             const res = await fetch('/api/settings', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(State.settings) });
             if (res.ok) {
                 UI.renderDevices();
             } else {
-                UI.showAlert("Lỗi", "Không thể lưu cài đặt luân phiên", "❌");
+                if(!silent) UI.showAlert("Lỗi", "Không thể lưu cài đặt luân phiên", "❌");
             }
         } catch(e) {
-            UI.showAlert("Lỗi", "Lỗi kết nối", "❌");
+            if(!silent) UI.showAlert("Lỗi", "Lỗi kết nối", "❌");
         }
-        UI.hideLoading();
+        if(!silent) UI.hideLoading();
     },
 
     toggleZoneCycle: function(zoneId, isEnabled, timeVal) {
@@ -220,7 +227,11 @@ const App = {
             zc.enabled = isEnabled;
             if (timeVal) zc.cycleTime = parseInt(timeVal);
         }
-        App.saveSettings();
+        
+        // Cố ý ép bộ đếm thời gian của các quạt này về rỗng để hiển thị ngay chữ "Đang đồng bộ..." cho đỡ lag
+        State.devices.filter(d => d.zone === zoneId).forEach(d => d.timeLeft = undefined);
+        
+        App.saveSettings(true); // Lưu ẩn (silent)
     },
     
     toggleAllZoneCycles: function(isEnabled) {
@@ -233,7 +244,11 @@ const App = {
                 zc.enabled = isEnabled;
             }
         });
-        App.saveSettings();
+        
+        // Ép toàn bộ về đồng bộ chờ Telemetry
+        State.devices.forEach(d => d.timeLeft = undefined);
+        
+        App.saveSettings(true); // Lưu ẩn
     },
 
     toggleRelay: async function(id, isChecked) {
@@ -301,7 +316,6 @@ const App = {
             State.isFetchingStatus = true; 
             try {
                 const controller = new AbortController(); const timeoutId = setTimeout(() => controller.abort(), 4000);
-                // CHỐNG CACHE
                 const res = await fetch('/api/status?_t=' + Date.now(), { signal: controller.signal });
                 clearTimeout(timeoutId);
                 document.getElementById('connection-status').className = 'status-dot online';
@@ -316,7 +330,6 @@ const App = {
             if (State.devices.length === 0) return;
             
             State.devices.forEach(dev => {
-                // SỬA: Bỏ điều kiện dev.isCycleMode để hỗ trợ cả đếm ngược luân phiên khu vực
                 if (dev.timeLeft !== undefined) {
                     if (dev.timeLeft > 0) dev.timeLeft--;
                     
@@ -325,7 +338,6 @@ const App = {
                         if (dev.timeLeft > 0) {
                             const m = Math.floor(dev.timeLeft / 60);
                             const s = dev.timeLeft % 60;
-                            // Format đẹp hơn cho bộ đếm
                             timerEl.innerHTML = `⏳ Đảo trạng thái sau: <strong style="color: #ef4444; margin-left: 5px;">${m}p ${s}s</strong>`;
                         } else {
                             timerEl.innerHTML = `🔄 Đang chuyển đổi...`;

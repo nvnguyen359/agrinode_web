@@ -46,13 +46,11 @@ const UI = {
     openModal: function(id) { document.getElementById(id).classList.remove('hidden'); },
     closeModal: function(id) { document.getElementById(id).classList.add('hidden'); },
 
-    // BẬT TIẾN TRÌNH OTA TỪ THỰC TẾ
     showOtaProgress: function(percent) {
         UI.closeConfirm();
         document.getElementById('header-normal').style.display = 'none';
         document.getElementById('header-ota').style.display = 'flex';
         
-        // Hủy bộ đếm fake nếu có tín hiệu % thật từ mạch gửi lên qua MQTT
         if(window.fakeOtaInterval) { clearInterval(window.fakeOtaInterval); window.fakeOtaInterval = null; }
 
         document.getElementById('header-ota-bar').style.width = percent + '%';
@@ -65,7 +63,6 @@ const UI = {
         }
     },
 
-    // BẬT GIẢ LẬP TIẾN TRÌNH TRÁNH BỊ ĐƠ UI
     startFakeOtaProgress: function() {
         UI.closeConfirm();
         document.getElementById('header-normal').style.display = 'none';
@@ -78,7 +75,6 @@ const UI = {
         
         if(window.fakeOtaInterval) clearInterval(window.fakeOtaInterval);
         
-        // Giả lập tiến trình: mỗi 0.8s tăng 1%, dừng lại ở 95% đợi mạch hoàn tất và khởi động lại
         window.fakeOtaInterval = setInterval(() => {
             if (fakePercent < 95) {
                 fakePercent += 1;
@@ -88,8 +84,6 @@ const UI = {
                 document.getElementById('header-ota-text').innerText = "⏳ Đang xử lý... (Vui lòng chờ)";
             }
         }, 800);
-        
-        // Đã xóa bỏ setTimeout 120000 ép reload trang ở đây
     },
 
     updateVersionUI: function(currentVer, newVer = null) {
@@ -262,32 +256,54 @@ const UI = {
         if(changed) UI.renderDevices();
     },
 
-    openDeviceModal: function() { State.editingDeviceId = null; UI.openModal('modal-select-type'); },
+    openDeviceModal: function() { 
+        State.editingDeviceId = null; 
+        UI.openModal('modal-select-type'); 
+    },
     selectDeviceType: function(type) {
-        State.tempDeviceType = type; UI.closeModal('modal-select-type'); document.getElementById('dev-name').value = '';
-        document.getElementById('dev-cycle-enable').checked = false; UI.toggleCycleSettings(false); UI.renderPinSelect(); UI.autoFillAnimalByZone();
+        State.tempDeviceType = type; 
+        UI.closeModal('modal-select-type'); 
+        
+        document.getElementById('dev-cycle-enable').checked = false; 
+        UI.toggleCycleSettings(false); 
+        UI.renderPinSelect(); 
+        UI.autoFillAnimalByZone();
+        
         document.getElementById('smart-animal-config').style.display = (type === 'fan' || type === 'heater') ? 'block' : 'none';
         document.getElementById('config-cycle').style.display = (type === 'fan' || type === 'pump') ? 'block' : 'none';
         UI.checkCycleOverrideWarning(type, document.getElementById('dev-zone').value);
-        document.getElementById('config-title').innerText = "Thêm thiết bị mới"; UI.openModal('modal-config-device');
+        
+        document.getElementById('config-title').innerText = "Thêm thiết bị mới"; 
+        UI.openModal('modal-config-device');
     },
     openEditModal: function(id) {
-        State.editingDeviceId = id; const dev = State.devices.find(d => d.id === id); if(!dev) return; State.tempDeviceType = dev.type;
-        document.getElementById('dev-name').value = dev.name; document.getElementById('dev-zone').value = dev.zone;
+        State.editingDeviceId = id; 
+        const dev = State.devices.find(d => d.id === id); 
+        if(!dev) return; 
+        
+        State.tempDeviceType = dev.type;
+        document.getElementById('dev-zone').value = dev.zone;
         document.getElementById('dev-cycle-enable').checked = dev.isCycleMode;
-        if(dev.isCycleMode) { document.getElementById('dev-cycle-on').value = dev.cycleOn; document.getElementById('dev-cycle-off').value = dev.cycleOff; }
-        UI.toggleCycleSettings(dev.isCycleMode); UI.renderPinSelect(dev.pin); 
+        
+        if(dev.isCycleMode) { 
+            document.getElementById('dev-cycle-on').value = dev.cycleOn; 
+            document.getElementById('dev-cycle-off').value = dev.cycleOff; 
+        }
+        
+        UI.toggleCycleSettings(dev.isCycleMode); 
+        UI.renderPinSelect(dev.pin); 
+        
         document.getElementById('smart-animal-config').style.display = (State.tempDeviceType === 'fan' || State.tempDeviceType === 'heater') ? 'block' : 'none';
         document.getElementById('config-cycle').style.display = (State.tempDeviceType === 'fan' || State.tempDeviceType === 'pump') ? 'block' : 'none';
         UI.checkCycleOverrideWarning(State.tempDeviceType, dev.zone);
         
-        // Cập nhật lại event listener cho select zone
         document.getElementById('dev-zone').onchange = () => {
             UI.autoFillAnimalByZone();
             UI.checkCycleOverrideWarning(State.tempDeviceType, document.getElementById('dev-zone').value);
         };
         
-        document.getElementById('config-title').innerText = "Sửa thiết bị"; UI.openModal('modal-config-device');
+        document.getElementById('config-title').innerText = "Sửa thiết bị"; 
+        UI.openModal('modal-config-device');
     },
     autoFillAnimalByZone: function() { const z = MasterData.zones.find(x => x.id === document.getElementById('dev-zone').value); if(z && z.animal !== 'none') { document.getElementById('dev-animal').value = z.animal; UI.applySmartRecommendation(); } },
     applySmartRecommendation: function() {
@@ -308,7 +324,6 @@ const UI = {
             msgEl.style.display = isOverridden ? 'block' : 'none';
         }
         
-        // Disable individual cycle inputs if overridden
         const cbEnable = document.getElementById('dev-cycle-enable');
         const inputOn = document.getElementById('dev-cycle-on');
         const inputOff = document.getElementById('dev-cycle-off');
