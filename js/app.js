@@ -1,10 +1,8 @@
 // app.js - Luồng chạy chính (Entry Point) & Logic Thiết bị
 const App = {
     init: async function() {
-        // 1. Dựng khung giao diện ngay lập tức
         document.getElementById('dev-zone').innerHTML = MasterData.zones.filter(z => z.id !== 'all').map(z => `<option value="${z.id}">${z.icon} ${z.name}</option>`).join('');
         
-        // 2. Chuyển vào form đăng nhập mà không chờ fetch API
         if (State.currentPin) {
             document.getElementById('pin-lock-overlay').classList.add('hidden');
             document.getElementById('secret-pin-input').value = State.currentPin; 
@@ -20,7 +18,6 @@ const App = {
         App.startStatusLoop();
         App.startCountdownLoop();
 
-        // 3. Gọi API Local chạy ngầm phía sau (Không chặn UI)
         if (Config.isLocal) {
             App.loadLocalDataBg();
         }
@@ -59,7 +56,7 @@ const App = {
         if (Config.isLocal) {
             UI.showLoading("Đang xác thực mã PIN...");
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => { controller.abort(); }, 5000); // Tự hủy sau 5s
+            const timeoutId = setTimeout(() => { controller.abort(); }, 5000);
 
             fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: inputStr }), signal: controller.signal })
             .then(res => res.json()).then(data => {
@@ -80,12 +77,10 @@ const App = {
             return;
         }
 
-        // --- DÀNH CHO BẢN CLOUD ---
         if (!State.isMqttConnected || !State.mqttClient) {
             document.getElementById('pin-status-msg').style.display = 'block'; 
             State.currentPin = inputStr; State.isWaitingForConnection = true; 
             
-            // Ép văng ra nếu ESP đang rớt mạng (tránh loading mãi)
             setTimeout(() => {
                 UI.hideLoading();
                 if(State.isWaitingForConnection) {
@@ -100,10 +95,10 @@ const App = {
         document.getElementById('pin-status-msg').style.display = 'none';
         State.currentPin = inputStr; UI.showLoading("Đang xác thực qua Cloud..."); 
         const message = new Paho.MQTT.Message(JSON.stringify({ cmd: "login", auth_pin: State.currentPin, client_id: Config.clientId }));
-        message.destinationName = `agrinode_${Config.MAC_ADDRESS}/control`.toLowerCase();
+        // FIX: Đổi prefix
+        message.destinationName = `${Config.DEVICE_PREFIX}${Config.MAC_ADDRESS}/control`.toLowerCase();
         State.mqttClient.send(message);
 
-        // Fail-safe: Quá 8s mạch ESP không trả lời thì báo lỗi Offline
         setTimeout(() => {
             UI.hideLoading();
             if(document.getElementById('pin-lock-overlay').classList.contains('hidden') === false) {
@@ -150,7 +145,8 @@ const App = {
                             if (Config.isLocal) await App.fetchLocalDevices();
                             else {
                                 const msg = new Paho.MQTT.Message(JSON.stringify({ cmd: "get_config", auth_pin: State.currentPin, client_id: Config.clientId }));
-                                msg.destinationName = `agrinode_${Config.MAC_ADDRESS}/control`.toLowerCase();
+                                // FIX: Đổi prefix
+                                msg.destinationName = `${Config.DEVICE_PREFIX}${Config.MAC_ADDRESS}/control`.toLowerCase();
                                 State.mqttClient.send(msg);
                             }
                         }, "💾");
@@ -168,7 +164,8 @@ const App = {
         } else {
             deviceData.cmd = "upsert"; deviceData.auth_pin = State.currentPin;
             const msg = new Paho.MQTT.Message(JSON.stringify(deviceData));
-            msg.destinationName = `agrinode_${Config.MAC_ADDRESS}/control`.toLowerCase();
+            // FIX: Đổi prefix
+            msg.destinationName = `${Config.DEVICE_PREFIX}${Config.MAC_ADDRESS}/control`.toLowerCase();
             State.mqttClient.send(msg);
         }
     },

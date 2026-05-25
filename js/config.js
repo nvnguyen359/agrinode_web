@@ -1,5 +1,6 @@
 // config.js - Quản lý cấu hình và trạng thái toàn cục (State Management)
 const Config = {
+    DEVICE_PREFIX: "Tung_", // FIX: Thêm tiền tố này để khớp 100% với mạch C++
     MAC_ADDRESS: "CC50E3DADF75",
     MQTT_BROKER: "cf506bbbf20d4561a8b37f7239c9ca88.s1.eu.hivemq.cloud",
     MQTT_PORT: 8884,
@@ -25,7 +26,7 @@ const State = {
     hasCheckedUpdate: false,
     isFetchingStatus: false,
     settings: {
-        zoneCycles: [] // Array of {zone: 'z_pig', enabled: true, cycleTime: 5}
+        zoneCycles: [] 
     }
 };
 

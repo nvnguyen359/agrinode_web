@@ -12,8 +12,10 @@ const Network = {
             
             State.mqttClient.onMessageArrived = (msg) => {
                 if (msg.retained) return; 
-                const TOPIC_CONFIG = `agrinode_${Config.MAC_ADDRESS}/config`.toLowerCase();
-                const TOPIC_TELEMETRY = `agrinode_${Config.MAC_ADDRESS}/telemetry`.toLowerCase();
+                
+                // FIX: Dùng Config.DEVICE_PREFIX thay vì hardcode agrinode_
+                const TOPIC_CONFIG = `${Config.DEVICE_PREFIX}${Config.MAC_ADDRESS}/config`.toLowerCase();
+                const TOPIC_TELEMETRY = `${Config.DEVICE_PREFIX}${Config.MAC_ADDRESS}/telemetry`.toLowerCase();
 
                 if (msg.destinationName === TOPIC_CONFIG) {
                     const data = JSON.parse(msg.payloadString);
@@ -23,10 +25,6 @@ const Network = {
                     
                     if (data.ota_progress !== undefined) {
                         UI.showOtaProgress(data.ota_progress);
-                    }
-                    // FIX: Bắt thông báo lỗi OTA từ ESP gửi về
-                    if (data.ota_error !== undefined) {
-                        if (UI.cancelOtaProgress) UI.cancelOtaProgress("Lỗi từ mạch ESP: " + data.ota_error);
                     }
                     UI.updateTelemetryUI(data);
                 }
@@ -43,8 +41,10 @@ const Network = {
             onSuccess: () => { 
                 State.isMqttConnected = true; 
                 document.getElementById('connection-status').className = 'status-dot online';
-                State.mqttClient.subscribe(`agrinode_${Config.MAC_ADDRESS}/telemetry`.toLowerCase()); 
-                State.mqttClient.subscribe(`agrinode_${Config.MAC_ADDRESS}/config`.toLowerCase()); 
+                
+                // FIX: Lắng nghe đúng kênh của mạch
+                State.mqttClient.subscribe(`${Config.DEVICE_PREFIX}${Config.MAC_ADDRESS}/telemetry`.toLowerCase()); 
+                State.mqttClient.subscribe(`${Config.DEVICE_PREFIX}${Config.MAC_ADDRESS}/config`.toLowerCase()); 
                 
                 if (State.isWaitingForConnection && State.currentPin) {
                     State.isWaitingForConnection = false;
@@ -52,7 +52,7 @@ const Network = {
                 } else if (State.currentPin && !State.isWaitingForConnection && !Config.isLocal) {
                     UI.showLoading("Đang đồng bộ dữ liệu...");
                     const msg = new Paho.MQTT.Message(JSON.stringify({ cmd: "get_config", auth_pin: State.currentPin, client_id: Config.clientId }));
-                    msg.destinationName = `agrinode_${Config.MAC_ADDRESS}/control`.toLowerCase();
+                    msg.destinationName = `${Config.DEVICE_PREFIX}${Config.MAC_ADDRESS}/control`.toLowerCase();
                     State.mqttClient.send(msg);
                 }
             },
@@ -77,7 +77,7 @@ const Network = {
 
         if (data.version) {
             State.CURRENT_VERSION = data.version;
-            UI.updateVersionUI(State.CURRENT_VERSION); // Update qua UI
+            UI.updateVersionUI(State.CURRENT_VERSION);
             if (!State.hasCheckedUpdate && !Config.isLocal) { 
                 State.hasCheckedUpdate = true; setTimeout(OTA.autoCheckUpdate, 2000); 
             }
@@ -94,7 +94,7 @@ const Network = {
                 if (!Config.isLocal) {
                     UI.showLoading("Đang tải dữ liệu thiết bị...");
                     const confMsg = new Paho.MQTT.Message(JSON.stringify({ cmd: "get_config", auth_pin: State.currentPin, client_id: Config.clientId }));
-                    confMsg.destinationName = `agrinode_${Config.MAC_ADDRESS}/control`.toLowerCase();
+                    confMsg.destinationName = `${Config.DEVICE_PREFIX}${Config.MAC_ADDRESS}/control`.toLowerCase();
                     State.mqttClient.send(confMsg);
                 } else { UI.hideLoading(); }
             } else {
@@ -129,7 +129,8 @@ const Network = {
         
         const executeSend = () => {
             const message = new Paho.MQTT.Message(JSON.stringify(payloadObj));
-            message.destinationName = `agrinode_${Config.MAC_ADDRESS}/control`.toLowerCase();
+            // FIX: Gửi đúng kênh
+            message.destinationName = `${Config.DEVICE_PREFIX}${Config.MAC_ADDRESS}/control`.toLowerCase();
             try {
                 if (loadingMsg) UI.showLoading(loadingMsg);
                 State.mqttClient.send(message);
