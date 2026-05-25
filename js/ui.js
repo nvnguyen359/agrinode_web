@@ -2,11 +2,21 @@
 const UI = {
     showLoading: function(txt) {
         const l = document.getElementById('loading');
-        if(l) { document.getElementById('loading-text').innerText = txt; l.classList.remove('hidden'); }
+        if(l) { 
+            document.getElementById('loading-text').innerText = txt; 
+            l.classList.remove('hidden'); 
+            // FIX: Chống kẹt màn hình loading mãi mãi (Tự tắt sau 10s)
+            if(window.globalLoadingTimeout) clearTimeout(window.globalLoadingTimeout);
+            window.globalLoadingTimeout = setTimeout(() => { 
+                l.classList.add('hidden'); 
+                console.warn("Đã ép tắt màn hình Loading do quá trễ!");
+            }, 10000);
+        }
     },
     hideLoading: function() {
         const l = document.getElementById('loading');
         if(l) l.classList.add('hidden');
+        if(window.globalLoadingTimeout) clearTimeout(window.globalLoadingTimeout);
     },
     navigate: function(id) {
         document.querySelectorAll('.page, .nav-item').forEach(e => e.classList.remove('active'));

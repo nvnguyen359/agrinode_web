@@ -1,40 +1,14 @@
 // app.js - Luồng chạy chính (Entry Point) & Logic Thiết bị
 const App = {
     init: async function() {
+        // 1. Dựng khung giao diện ngay lập tức
         document.getElementById('dev-zone').innerHTML = MasterData.zones.filter(z => z.id !== 'all').map(z => `<option value="${z.id}">${z.icon} ${z.name}</option>`).join('');
         
-        if (Config.isLocal) {
-            try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 3000);
-                const infoRes = await fetch('/api/info?_t=' + Date.now(), { signal: controller.signal });
-                clearTimeout(timeoutId);
-                const infoData = await infoRes.json();
-                State.HARDWARE_PINS = infoData.hardware_pins;
-                
-                if (infoData.version) {
-                    State.CURRENT_VERSION = infoData.version;
-                    UI.updateVersionUI(State.CURRENT_VERSION);
-                    if(!State.hasCheckedUpdate) { State.hasCheckedUpdate = true; setTimeout(OTA.autoCheckUpdate, 2000); }
-                }
-            } catch (e) { console.warn("Lỗi tải API /info", e); }
-            
-            try {
-                const resSettings = await fetch('/api/settings?_t=' + Date.now());
-                if (resSettings.ok) {
-                    State.settings = await resSettings.json();
-                }
-            } catch(e) {}
-            
-            await App.fetchLocalDevices(); 
-        }
-
-        // FIX: Tự động gọi checkPin để tắt màn hình Loading
+        // 2. Chuyển vào form đăng nhập mà không chờ fetch API
         if (State.currentPin) {
             document.getElementById('pin-lock-overlay').classList.add('hidden');
             document.getElementById('secret-pin-input').value = State.currentPin; 
             UI.showLoading("Đang kết nối hệ thống...");
-            // Thêm dòng này để hệ thống tự chạy xác thực và ẩn Loading
             setTimeout(() => { App.checkPin(); }, 500);
         } else {
             document.getElementById('pin-lock-overlay').classList.remove('hidden');
@@ -45,6 +19,36 @@ const App = {
         
         App.startStatusLoop();
         App.startCountdownLoop();
+
+        // 3. Gọi API Local chạy ngầm phía sau (Không chặn UI)
+        if (Config.isLocal) {
+            App.loadLocalDataBg();
+        }
+    },
+
+    loadLocalDataBg: async function() {
+        try {
+            const controller = new AbortController();
+            setTimeout(() => controller.abort(), 3000);
+            fetch('/api/info?_t=' + Date.now(), { signal: controller.signal })
+            .then(res => res.json())
+            .then(infoData => {
+                State.HARDWARE_PINS = infoData.hardware_pins;
+                if (infoData.version) {
+                    State.CURRENT_VERSION = infoData.version;
+                    UI.updateVersionUI(State.CURRENT_VERSION);
+                    if(!State.hasCheckedUpdate) { State.hasCheckedUpdate = true; setTimeout(OTA.autoCheckUpdate, 2000); }
+                }
+            }).catch(e => console.warn("API /info error", e));
+        } catch(e) {}
+
+        try {
+            fetch('/api/settings?_t=' + Date.now())
+            .then(res => res.json())
+            .then(data => State.settings = data).catch(e=>{});
+        } catch(e) {}
+
+        await App.fetchLocalDevices();
     },
 
     checkPin: function() {
@@ -54,8 +58,12 @@ const App = {
 
         if (Config.isLocal) {
             UI.showLoading("Đang xác thực mã PIN...");
-            fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: inputStr }) })
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => { controller.abort(); }, 5000); // Tự hủy sau 5s
+
+            fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: inputStr }), signal: controller.signal })
             .then(res => res.json()).then(data => {
+                clearTimeout(timeoutId);
                 if (data.success) {
                     State.currentPin = inputStr; localStorage.setItem('agrinode_pin', State.currentPin);
                     document.getElementById('pin-lock-overlay').classList.add('hidden');
@@ -63,20 +71,45 @@ const App = {
                 } else {
                     UI.hideLoading(); document.getElementById('pin-error-msg').style.display = 'block'; document.getElementById('secret-pin-input').value = '';
                 }
-            }).catch(err => { UI.hideLoading(); UI.showAlert("Lỗi mạng", "Không thể kết nối đến ESP!", "❌"); });
+            }).catch(err => { 
+                clearTimeout(timeoutId);
+                UI.hideLoading(); 
+                UI.showAlert("Lỗi mạng", "Không thể kết nối đến ESP. Vui lòng tải lại trang!", "❌"); 
+                document.getElementById('pin-lock-overlay').classList.remove('hidden');
+            });
             return;
         }
 
+        // --- DÀNH CHO BẢN CLOUD ---
         if (!State.isMqttConnected || !State.mqttClient) {
             document.getElementById('pin-status-msg').style.display = 'block'; 
-            State.currentPin = inputStr; State.isWaitingForConnection = true; return; 
+            State.currentPin = inputStr; State.isWaitingForConnection = true; 
+            
+            // Ép văng ra nếu ESP đang rớt mạng (tránh loading mãi)
+            setTimeout(() => {
+                UI.hideLoading();
+                if(State.isWaitingForConnection) {
+                    UI.showAlert("Mất kết nối", "Mạch ESP hiện đang Offline. Hãy kiểm tra điện & WiFi của mạch!", "🔌");
+                    document.getElementById('pin-lock-overlay').classList.remove('hidden');
+                    State.isWaitingForConnection = false;
+                }
+            }, 8000);
+            return; 
         }
         
         document.getElementById('pin-status-msg').style.display = 'none';
-        State.currentPin = inputStr; UI.showLoading("Đang xác thực mã PIN..."); 
+        State.currentPin = inputStr; UI.showLoading("Đang xác thực qua Cloud..."); 
         const message = new Paho.MQTT.Message(JSON.stringify({ cmd: "login", auth_pin: State.currentPin, client_id: Config.clientId }));
         message.destinationName = `agrinode_${Config.MAC_ADDRESS}/control`.toLowerCase();
         State.mqttClient.send(message);
+
+        // Fail-safe: Quá 8s mạch ESP không trả lời thì báo lỗi Offline
+        setTimeout(() => {
+            UI.hideLoading();
+            if(document.getElementById('pin-lock-overlay').classList.contains('hidden') === false) {
+                 UI.showAlert("Mất kết nối", "Mạch ESP không phản hồi xác thực. Vui lòng thử lại!", "🔌");
+            }
+        }, 8000);
     },
 
     fetchLocalDevices: async function() {
@@ -144,7 +177,6 @@ const App = {
         const selectedPin = document.getElementById('dev-pin').value; 
         if (!selectedPin) return UI.showAlert("Lỗi", "Vui lòng chọn chân GPIO!", "⚠️");
         
-        // TỰ ĐỘNG TẠO TÊN THEO CÔNG THỨC: "Loại thiết bị (Chân D...)"
         const pinObj = State.HARDWARE_PINS.find(p => parseInt(p.pin) === parseInt(selectedPin));
         const shortPinLabel = pinObj ? pinObj.label.split(' ')[0] : `GPIO ${selectedPin}`;
         const generatedName = `${MasterData.deviceTypeNames[State.tempDeviceType]} (${shortPinLabel})`;
@@ -231,7 +263,7 @@ const App = {
         }
         
         State.devices.filter(d => d.zone === zoneId).forEach(d => d.timeLeft = undefined);
-        App.saveSettings(true); // Lưu ẩn (silent)
+        App.saveSettings(true); 
     },
     
     toggleAllZoneCycles: function(isEnabled) {
@@ -246,7 +278,7 @@ const App = {
         });
         
         State.devices.forEach(d => d.timeLeft = undefined);
-        App.saveSettings(true); // Lưu ẩn
+        App.saveSettings(true); 
     },
 
     toggleRelay: async function(id, isChecked) {
@@ -273,8 +305,8 @@ const App = {
                 UI.hideLoading(); UI.showAlert("Lỗi", "Không thể quét được mạng từ mạch!", "❌");
             }
         } else {
-            UI.showConfirm("Cảnh báo", "Bạn đang quét mạng qua Cloud. Quá trình này sẽ làm mạch tạm ngưng kết nối vài giây để quét sóng. Tiếp tục?", () => {
-                Network.sendAction({ cmd: "wifi_scan" }, "Đang yêu cầu ESP quét WiFi từ xa...");
+            UI.showConfirm("Cảnh báo", "Bạn đang quét mạng qua Cloud. Quá trình này làm mạch tạm ngưng kết nối vài giây để quét sóng. Tiếp tục?", () => {
+                Network.sendAction({ cmd: "wifi_scan" }, "Đang yêu cầu ESP quét WiFi...");
             }, "📡");
         }
     },
@@ -287,22 +319,22 @@ const App = {
         
         const confirmMsg = Config.isLocal 
             ? `Cấu hình mạch kết nối vào WiFi: ${ssid}?` 
-            : `CẢNH BÁO NGUY HIỂM!\n\nBạn đang ra lệnh đổi WiFi TỪ XA. Nếu bạn nhập sai mật khẩu, mạch ESP sẽ bị mất kết nối vĩnh viễn và bạn phải ra tận nơi để sửa!\n\nBạn có chắc chắn mạch ESP bắt được sóng của WiFi [ ${ssid} ] không?`;
+            : `CẢNH BÁO NGUY HIỂM!\n\nNếu bạn nhập sai mật khẩu, mạch ESP sẽ bị mất kết nối vĩnh viễn và phải ra tận nơi cài lại!\n\nBạn chắc chắn mạch ESP bắt được WiFi [ ${ssid} ] chứ?`;
             
         UI.showConfirm("Xác nhận đổi WiFi", confirmMsg, () => {
-            UI.showLoading(`Đang gửi lệnh cấu hình WiFi: ${ssid}...`);
+            UI.showLoading(`Đang gửi lệnh WiFi: ${ssid}...`);
 
             if (Config.isLocal) {
                 const handleRedirect = () => {
                     UI.hideLoading();
-                    UI.showConfirm("Thành công", "Đã lưu WiFi! Mạch đang khởi động lại.\n\nBạn có muốn chuyển sang trang quản lý Cloud (GitHub Pages) không?", () => {
+                    UI.showConfirm("Thành công", "Đã lưu WiFi! Mạch đang khởi động lại.\n\nChuyển sang trang quản lý Cloud?", () => {
                         window.location.href = "https://nvnguyen359.github.io/agrinode_web/";
                     }, "✅");
                 };
                 fetch('/api/wifi/save', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ ssid, pass }) })
                 .then(res => res.json()).then(data => handleRedirect()).catch(err => handleRedirect());
             } else {
-                Network.sendAction({ cmd: "wifi_save", ssid: ssid, pass: pass }, "Đang gửi mật khẩu qua Cloud...");
+                Network.sendAction({ cmd: "wifi_save", ssid: ssid, pass: pass }, "Đang gửi cấu hình mạng...");
             }
         }, "⚠️", !Config.isLocal);
     },
