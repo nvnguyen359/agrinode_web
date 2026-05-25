@@ -114,6 +114,11 @@ const Network = {
         if (data.devices) { State.devices = data.devices; dataHasUpdated = true; App.checkAndRestoreBackup(); } 
         else if (Array.isArray(data)) { State.devices = data; dataHasUpdated = true; App.checkAndRestoreBackup(); }
         
+        if (data.settings) {
+            State.settings = data.settings;
+            dataHasUpdated = true;
+        }
+        
         if (dataHasUpdated) { UI.hideLoading(); UI.renderZones(); UI.renderPinSelect(); UI.renderDevices(); }
     },
 

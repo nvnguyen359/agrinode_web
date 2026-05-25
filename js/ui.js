@@ -227,6 +227,7 @@ const UI = {
         document.getElementById('dev-cycle-enable').checked = false; UI.toggleCycleSettings(false); UI.renderPinSelect(); UI.autoFillAnimalByZone();
         document.getElementById('smart-animal-config').style.display = (type === 'fan' || type === 'heater') ? 'block' : 'none';
         document.getElementById('config-cycle').style.display = (type === 'fan' || type === 'pump') ? 'block' : 'none';
+        UI.checkCycleOverrideWarning(type, document.getElementById('dev-zone').value);
         document.getElementById('config-title').innerText = "Thêm thiết bị mới"; UI.openModal('modal-config-device');
     },
     openEditModal: function(id) {
@@ -237,6 +238,14 @@ const UI = {
         UI.toggleCycleSettings(dev.isCycleMode); UI.renderPinSelect(dev.pin); 
         document.getElementById('smart-animal-config').style.display = (State.tempDeviceType === 'fan' || State.tempDeviceType === 'heater') ? 'block' : 'none';
         document.getElementById('config-cycle').style.display = (State.tempDeviceType === 'fan' || State.tempDeviceType === 'pump') ? 'block' : 'none';
+        UI.checkCycleOverrideWarning(State.tempDeviceType, dev.zone);
+        
+        // Cập nhật lại event listener cho select zone
+        document.getElementById('dev-zone').onchange = () => {
+            UI.autoFillAnimalByZone();
+            UI.checkCycleOverrideWarning(State.tempDeviceType, document.getElementById('dev-zone').value);
+        };
+        
         document.getElementById('config-title').innerText = "Sửa thiết bị"; UI.openModal('modal-config-device');
     },
     autoFillAnimalByZone: function() { const z = MasterData.zones.find(x => x.id === document.getElementById('dev-zone').value); if(z && z.animal !== 'none') { document.getElementById('dev-animal').value = z.animal; UI.applySmartRecommendation(); } },
@@ -246,6 +255,56 @@ const UI = {
         if (State.tempDeviceType === 'fan') { document.getElementById('dev-cycle-enable').checked = true; UI.toggleCycleSettings(true); document.getElementById('dev-cycle-on').value = d.cycleOn; document.getElementById('dev-cycle-off').value = d.cycleOff; }
     },
     toggleCycleSettings: function(show) { document.getElementById('cycle-timers').className = show ? 'mt-20 grid-2' : 'hidden mt-20 grid-2'; },
+    
+    openCycleSettingsModal: function() {
+        const s = State.settings;
+        document.getElementById('setting-cycle-mode').value = s.cycleMode;
+        document.getElementById('setting-zone-time').value = s.zoneCycleTime;
+        document.getElementById('setting-barn-rule').value = s.barnCycleRule;
+        document.getElementById('setting-barn-time').value = s.barnCycleTime;
+
+        // Render checkboxes
+        let cbHtml = MasterData.zones.filter(z => z.id !== 'all').map(z => {
+            const checked = s.barnCycleZones.includes(z.id) ? 'checked' : '';
+            return `<label style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" value="${z.id}" ${checked}> ${z.icon} ${z.name}
+                    </label>`;
+        }).join('');
+        
+        cbHtml += `<label style="display: flex; align-items: center; gap: 8px; margin-top: 5px; font-weight: bold;">
+                        <input type="checkbox" value="all" ${s.barnCycleZones.includes('all') ? 'checked' : ''}> 🏠 Tất cả khu vực
+                    </label>`;
+                    
+        document.getElementById('setting-barn-zones').innerHTML = cbHtml;
+
+        UI.toggleCycleModeSettings(s.cycleMode);
+        UI.openModal('modal-cycle-settings');
+    },
+
+    toggleCycleModeSettings: function(mode) {
+        document.getElementById('setting-zone-config').style.display = (mode === 'zone') ? 'block' : 'none';
+        document.getElementById('setting-barn-config').style.display = (mode === 'barn') ? 'block' : 'none';
+    },
+
+    checkCycleOverrideWarning: function(devType, devZone) {
+        const s = State.settings;
+        let isOverridden = false;
+        
+        if (devType === 'fan') {
+            if (s.cycleMode === 'barn') {
+                if (s.barnCycleZones.includes('all') || s.barnCycleZones.includes(devZone)) isOverridden = true;
+            } else if (s.cycleMode === 'zone' && devZone !== '' && devZone !== 'all') {
+                isOverridden = true;
+            }
+        }
+        
+        const msgEl = document.getElementById('cycle-override-msg');
+        if (msgEl) {
+            msgEl.style.display = isOverridden ? 'block' : 'none';
+        }
+        return isOverridden;
+    },
+
     togglePassword: function() { const i = document.getElementById('wifi-pass'); i.type = (i.type === 'password') ? 'text' : 'password'; },
     
     populateWiFiList: function(networks) {

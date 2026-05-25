@@ -17,10 +17,16 @@ const App = {
                     UI.updateVersionUI(State.CURRENT_VERSION);
                     if(!State.hasCheckedUpdate) { State.hasCheckedUpdate = true; setTimeout(OTA.autoCheckUpdate, 2000); }
                 }
-            } catch (e) { App.loadDefaultPins(); }
+            } catch (e) { console.warn("Lỗi tải API /info", e); }
+            
+            try {
+                const resSettings = await fetch('/api/settings');
+                if (resSettings.ok) {
+                    State.settings = await resSettings.json();
+                }
+            } catch(e) {}
+            
             await App.fetchLocalDevices(); 
-        } else {
-            App.loadDefaultPins();
         }
 
         if (State.currentPin) {
@@ -37,10 +43,6 @@ const App = {
         App.startCountdownLoop();
     },
 
-    loadDefaultPins: function() {
-        const pins = [4, 5, 12, 13, 14, 15, 16]; 
-        State.HARDWARE_PINS = pins.map(p => ({pin: p, label: 'D'+p}));
-    },
 
     checkPin: function() {
         const inputStr = document.getElementById('secret-pin-input').value;
@@ -183,6 +185,47 @@ const App = {
             } catch(e) { }
             UI.hideLoading();
         }, "⚠️", true);
+    },
+
+    saveCycleSettings: async function() {
+        const mode = document.getElementById('setting-cycle-mode').value;
+        const newSettings = {
+            cycleMode: mode,
+            zoneCycleTime: parseInt(document.getElementById('setting-zone-time').value),
+            barnCycleRule: parseInt(document.getElementById('setting-barn-rule').value),
+            barnCycleTime: parseInt(document.getElementById('setting-barn-time').value),
+            barnCycleZones: []
+        };
+
+        if (mode === 'barn') {
+            const checkboxes = document.querySelectorAll('#setting-barn-zones input[type="checkbox"]:checked');
+            checkboxes.forEach(cb => newSettings.barnCycleZones.push(cb.value));
+            if (newSettings.barnCycleZones.length === 0) return UI.showAlert("Lỗi", "Vui lòng chọn ít nhất một khu vực!", "⚠️");
+        }
+
+        if (!Config.isLocal) {
+            newSettings.cmd = "save_settings"; 
+            Network.sendAction(newSettings, "Đang đẩy cấu hình luân phiên...", () => { 
+                State.settings = newSettings;
+                UI.closeModal('modal-cycle-settings'); 
+            }); 
+            return;
+        }
+
+        UI.showLoading("Đang lưu cấu hình luân phiên...");
+        try {
+            const res = await fetch('/api/settings', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(newSettings) });
+            if (res.ok) {
+                State.settings = newSettings;
+                UI.closeModal('modal-cycle-settings');
+                UI.showAlert("Thành công", "Đã lưu cài đặt luân phiên thành công", "✅");
+            } else {
+                UI.showAlert("Lỗi", "Không thể lưu cài đặt luân phiên", "❌");
+            }
+        } catch(e) {
+            UI.showAlert("Lỗi", "Lỗi kết nối", "❌");
+        }
+        UI.hideLoading();
     },
 
     toggleRelay: async function(id, isChecked) {

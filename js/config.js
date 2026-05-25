@@ -23,7 +23,14 @@ const State = {
     editingDeviceId: null,
     CURRENT_VERSION: "Unknown",
     hasCheckedUpdate: false,
-    isFetchingStatus: false
+    isFetchingStatus: false,
+    settings: {
+        cycleMode: 'device',
+        zoneCycleTime: 5,
+        barnCycleTime: 5,
+        barnCycleRule: 1,
+        barnCycleZones: []
+    }
 };
 
 const MasterData = {
