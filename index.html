@@ -88,12 +88,7 @@
                     </form>
                 </div>
 
-                <div class="section-title">Luân Phiên Thông Gió</div>
-                <div class="card setup-card">
-                    <p class="setup-desc">Cấu hình chế độ hoạt động luân phiên nâng cao cho quạt (Theo khu vực / Toàn chuồng).</p>
-                    <button class="btn-primary" onclick="UI.openCycleSettingsModal()" style="background: #10b981;">Cài đặt Luân Phiên</button>
-                </div>
-            </section>
+
         </main>
 
         <nav class="bottom-nav">
@@ -111,57 +106,7 @@
 
         <div id="modal-config-device" class="modal-overlay hidden"><div class="modal-box"><div class="modal-header"><h3 id="config-title">Cấu hình thiết bị</h3><button class="close-btn" onclick="UI.closeModal('modal-config-device')">✕</button></div><div class="modal-body"><div class="input-group"><label>Tên thiết bị</label><input type="text" id="dev-name" placeholder="Bỏ trống sẽ tự động đặt tên"></div><div class="input-group"><label>Chân điều khiển (Hardware Pin)</label><select id="dev-pin"></select></div><div class="input-group"><label>Lắp đặt tại khu vực</label><select id="dev-zone" onchange="UI.autoFillAnimalByZone()"></select></div><div id="smart-animal-config"><div class="input-group"><label>Đối tượng (Gợi ý thông số)</label><select id="dev-animal" onchange="UI.applySmartRecommendation()"><option value="none">-- Tùy chỉnh thủ công --</option><option value="chicken_baby">Gà con (1-2 tuần)</option><option value="chicken_adult">Gà lớn (Từ 4 tuần)</option><option value="pig_baby">Lợn sơ sinh</option><option value="pig">Heo thịt</option></select></div><div class="input-group"><label>Ngưỡng kích hoạt (<span id="threshold-val">25</span>°C)</label><input type="range" id="dev-threshold" min="10" max="45" value="25" oninput="document.getElementById('threshold-val').innerText = this.value"></div></div><div class="advanced-config" id="config-cycle"><div class="d-flex-between"><label style="margin: 0; font-weight: 600;">Thông gió luân phiên</label><label class="toggle-switch"><input type="checkbox" id="dev-cycle-enable" onchange="UI.toggleCycleSettings(this.checked)"><span class="slider"></span></label></div><div id="cycle-timers" class="hidden mt-20 grid-2"><div class="input-group"><label>⏱️ Bật (phút)</label><input type="number" id="dev-cycle-on" value="1"></div><div class="input-group"><label>⏸️ Nghỉ (phút)</label><input type="number" id="dev-cycle-off" value="5"></div></div><div id="cycle-override-msg" style="display: none; color: #d97706; font-size: 0.85rem; margin-top: 10px;">⚠️ Cài đặt này đang bị vô hiệu hóa do Quạt đang chạy theo chế độ Khu vực / Toàn chuồng.</div></div><button class="btn-primary mt-20" onclick="App.saveDevice()">Lưu thiết bị</button></div></div></div>
 
-        <div id="modal-cycle-settings" class="modal-overlay hidden">
-            <div class="modal-box">
-                <div class="modal-header">
-                    <h3>Cài đặt Luân Phiên</h3>
-                    <button class="close-btn" onclick="UI.closeModal('modal-cycle-settings')">✕</button>
-                </div>
-                <div class="modal-body">
-                    <div class="input-group">
-                        <label>Chế độ hoạt động</label>
-                        <select id="setting-cycle-mode" onchange="UI.toggleCycleModeSettings(this.value)">
-                            <option value="device">Từng quạt (Cài trong từng thiết bị)</option>
-                            <option value="zone">Theo khu vực (Quạt luân phiên nhau)</option>
-                            <option value="barn">Toàn chuồng (Gộp các khu vực)</option>
-                        </select>
-                    </div>
-                    
-                    <div id="setting-zone-config" class="hidden advanced-config" style="margin-top: 15px;">
-                        <label style="font-weight: 600; color: var(--primary);">Cấu hình Khu Vực</label>
-                        <p style="font-size: 0.85rem; color: #666; margin-bottom: 10px;">Các quạt trong cùng 1 khu vực sẽ lần lượt chạy nối tiếp nhau.</p>
-                        <div class="input-group">
-                            <label>Thời gian mỗi quạt chạy (phút)</label>
-                            <input type="number" id="setting-zone-time" min="1" value="5">
-                        </div>
-                    </div>
-                    
-                    <div id="setting-barn-config" class="hidden advanced-config" style="margin-top: 15px;">
-                        <label style="font-weight: 600; color: var(--primary);">Cấu hình Toàn Chuồng</label>
-                        <p style="font-size: 0.85rem; color: #666; margin-bottom: 10px;">Liên kết các khu vực để luân phiên đồng bộ.</p>
-                        <div class="input-group">
-                            <label>Khu vực áp dụng</label>
-                            <div id="setting-barn-zones" style="display: flex; flex-direction: column; gap: 8px; margin-top: 5px;">
-                                <!-- Checkboxes render dynamically -->
-                            </div>
-                        </div>
-                        <div class="input-group mt-15">
-                            <label>Quy tắc chạy</label>
-                            <select id="setting-barn-rule">
-                                <option value="1">Cụm khu vực (Tất cả quạt Khu A -> Khu B)</option>
-                                <option value="2">Từng quạt nối tiếp (Q1 Khu A -> Q2 Khu A -> Q1 Khu B)</option>
-                            </select>
-                        </div>
-                        <div class="input-group">
-                            <label>Thời gian luân phiên (phút)</label>
-                            <input type="number" id="setting-barn-time" min="1" value="5">
-                        </div>
-                    </div>
-                    
-                    <button class="btn-primary mt-20" onclick="App.saveCycleSettings()">Lưu cài đặt</button>
-                </div>
-            </div>
-        </div>
+
 
         <div id="modal-alert" class="modal-overlay hidden" style="z-index: 10001;">
             <div class="modal-box" style="text-align: center; padding: 30px 20px;">

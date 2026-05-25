@@ -25,11 +25,7 @@ const State = {
     hasCheckedUpdate: false,
     isFetchingStatus: false,
     settings: {
-        cycleMode: 'device',
-        zoneCycleTime: 5,
-        barnCycleTime: 5,
-        barnCycleRule: 1,
-        barnCycleZones: []
+        zoneCycles: [] // Array of {zone: 'z_pig', enabled: true, cycleTime: 5}
     }
 };
 

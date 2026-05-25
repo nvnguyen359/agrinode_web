@@ -187,38 +187,19 @@ const App = {
         }, "⚠️", true);
     },
 
-    saveCycleSettings: async function() {
-        const mode = document.getElementById('setting-cycle-mode').value;
-        const newSettings = {
-            cycleMode: mode,
-            zoneCycleTime: parseInt(document.getElementById('setting-zone-time').value),
-            barnCycleRule: parseInt(document.getElementById('setting-barn-rule').value),
-            barnCycleTime: parseInt(document.getElementById('setting-barn-time').value),
-            barnCycleZones: []
-        };
-
-        if (mode === 'barn') {
-            const checkboxes = document.querySelectorAll('#setting-barn-zones input[type="checkbox"]:checked');
-            checkboxes.forEach(cb => newSettings.barnCycleZones.push(cb.value));
-            if (newSettings.barnCycleZones.length === 0) return UI.showAlert("Lỗi", "Vui lòng chọn ít nhất một khu vực!", "⚠️");
-        }
-
+    saveSettings: async function() {
         if (!Config.isLocal) {
-            newSettings.cmd = "save_settings"; 
-            Network.sendAction(newSettings, "Đang đẩy cấu hình luân phiên...", () => { 
-                State.settings = newSettings;
-                UI.closeModal('modal-cycle-settings'); 
-            }); 
+            let msg = JSON.parse(JSON.stringify(State.settings));
+            msg.cmd = "save_settings";
+            Network.sendAction(msg, "Đang lưu cấu hình...", () => { UI.renderDevices(); }); 
             return;
         }
 
-        UI.showLoading("Đang lưu cấu hình luân phiên...");
+        UI.showLoading("Đang lưu...");
         try {
-            const res = await fetch('/api/settings', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(newSettings) });
+            const res = await fetch('/api/settings', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(State.settings) });
             if (res.ok) {
-                State.settings = newSettings;
-                UI.closeModal('modal-cycle-settings');
-                UI.showAlert("Thành công", "Đã lưu cài đặt luân phiên thành công", "✅");
+                UI.renderDevices();
             } else {
                 UI.showAlert("Lỗi", "Không thể lưu cài đặt luân phiên", "❌");
             }
@@ -226,6 +207,32 @@ const App = {
             UI.showAlert("Lỗi", "Lỗi kết nối", "❌");
         }
         UI.hideLoading();
+    },
+
+    toggleZoneCycle: function(zoneId, isEnabled, timeVal) {
+        if (!State.settings.zoneCycles) State.settings.zoneCycles = [];
+        let zc = State.settings.zoneCycles.find(x => x.zone === zoneId);
+        if (!zc) {
+            zc = { zone: zoneId, enabled: isEnabled, cycleTime: parseInt(timeVal) || 5 };
+            State.settings.zoneCycles.push(zc);
+        } else {
+            zc.enabled = isEnabled;
+            if (timeVal) zc.cycleTime = parseInt(timeVal);
+        }
+        App.saveSettings();
+    },
+    
+    toggleAllZoneCycles: function(isEnabled) {
+        if (!State.settings.zoneCycles) State.settings.zoneCycles = [];
+        MasterData.zones.filter(z => z.id !== 'all').forEach(z => {
+            let zc = State.settings.zoneCycles.find(x => x.zone === z.id);
+            if (!zc) {
+                State.settings.zoneCycles.push({ zone: z.id, enabled: isEnabled, cycleTime: 5 });
+            } else {
+                zc.enabled = isEnabled;
+            }
+        });
+        App.saveSettings();
     },
 
     toggleRelay: async function(id, isChecked) {

@@ -154,30 +154,78 @@ const UI = {
         if (State.devices.length === 0) return container.innerHTML = '<div class="empty-state">Chưa có thiết bị nào. Hãy thêm mới!</div>';
         let html = '';
         const zonesToRender = State.activeZone === 'all' ? MasterData.zones.filter(z => z.id !== 'all') : [MasterData.zones.find(z => z.id === State.activeZone)];
+        
+        if (State.activeZone === 'all') {
+            const allEnabled = State.settings.zoneCycles && State.settings.zoneCycles.every(zc => zc.enabled) && State.settings.zoneCycles.length === MasterData.zones.filter(z => z.id !== 'all').length && State.settings.zoneCycles.length > 0;
+            html += `<div style="display:flex; justify-content:flex-end; margin-bottom: 15px;">
+                        <label style="display:flex; align-items:center; gap:8px; font-weight:600; cursor:pointer; background:#fff; padding:8px 12px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+                            <input type="checkbox" ${allEnabled ? 'checked' : ''} onchange="App.toggleAllZoneCycles(this.checked)"> Luân phiên toàn bộ
+                        </label>
+                     </div>`;
+        }
+        
         zonesToRender.forEach(z => {
             const devsInZone = State.devices.filter(d => d.zone === z.id);
             if (devsInZone.length > 0) {
-                html += `<div class="zone-card"><div class="zone-group-title">${z.icon} Khu vực: ${z.name}</div>`;
-                devsInZone.forEach(dev => html += UI.createDeviceCard(dev));
+                const zc = State.settings.zoneCycles ? State.settings.zoneCycles.find(x => x.zone === z.id) : null;
+                const isZoneCycle = zc ? zc.enabled : false;
+                const cycleTime = zc ? zc.cycleTime : 5;
+                
+                let timeOptions = '';
+                [1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 40, 50].forEach(t => {
+                    timeOptions += `<option value="${t}" ${cycleTime == t ? 'selected' : ''}>${t}p</option>`;
+                });
+                
+                let cycleCtrlHtml = `
+                    <div style="display:flex; align-items:center; gap:10px; font-size:0.9rem; font-weight:normal;">
+                        <label style="display:flex; align-items:center; gap:5px; cursor:pointer; color: var(--text-main);">
+                            <input type="checkbox" ${isZoneCycle ? 'checked' : ''} onchange="App.toggleZoneCycle('${z.id}', this.checked, document.getElementById('zt-${z.id}').value)"> Quạt luân phiên
+                        </label>
+                        <select id="zt-${z.id}" onchange="if(this.previousElementSibling.firstElementChild.checked) App.toggleZoneCycle('${z.id}', true, this.value)" style="display:${isZoneCycle ? 'block' : 'none'}; padding:2px 5px; border-radius:4px; border:1px solid #ccc; font-size:0.85rem;">
+                            ${timeOptions}
+                        </select>
+                    </div>
+                `;
+                
+                html += `<div class="zone-card">
+                            <div class="zone-group-title" style="display:flex; justify-content:space-between; align-items:center;">
+                                <div>${z.icon} Khu vực: ${z.name}</div>
+                                ${cycleCtrlHtml}
+                            </div>`;
+                devsInZone.forEach(dev => html += UI.createDeviceCard(dev, isZoneCycle));
                 html += `</div>`;
             }
         });
         container.innerHTML = html || '<div class="empty-state">Khu vực này trống.</div>';
     },
 
-    createDeviceCard: function(dev) {
+    createDeviceCard: function(dev, isZoneCycleOverridden) {
         const isOn = dev.state === 'ON';
         let statusText = isOn ? 'Đang chạy' : 'Đã tắt';
-        let statusIcon = dev.isCycleMode ? (isOn ? '<span class="icon-pulse icon-spin">🔄</span>' : '<span class="icon-pulse">🔄</span>') : '';
+        
+        let isDevCycle = dev.isCycleMode && !isZoneCycleOverridden;
+        let statusIcon = isDevCycle ? (isOn ? '<span class="icon-pulse icon-spin">🔄</span>' : '<span class="icon-pulse">🔄</span>') : '';
+        if (isZoneCycleOverridden && dev.type === 'fan') {
+            statusIcon = isOn ? '<span class="icon-pulse icon-spin">🔄</span>' : '<span class="icon-pulse">🔄</span>';
+        }
+        
         let timerHtml = ''; 
 
-        if (dev.isCycleMode) { 
+        if (isZoneCycleOverridden && dev.type === 'fan') {
+            statusText = `Luân phiên khu vực - ${isOn ? 'Đang bật' : 'Đang nghỉ'}`;
+            timerHtml = `<div id="timer-${dev.id}" style="color: var(--text-main); margin-top: 6px; font-size: 0.85rem; display:flex; gap: 5px; align-items: center; background: #eff6ff; border: 1px dashed #93c5fd; padding: 4px 8px; border-radius: 6px; width: fit-content;">⏳ Đang đồng bộ...</div>`;
+        } else if (isDevCycle) { 
             statusText = `Luân phiên (${dev.cycleOn}p/${dev.cycleOff}p) - ${isOn ? 'Đang bật' : 'Đang nghỉ'}`;
             timerHtml = `<div id="timer-${dev.id}" style="color: var(--text-main); margin-top: 6px; font-size: 0.85rem; display:flex; gap: 5px; align-items: center; background: #fef2f2; border: 1px dashed #fca5a5; padding: 4px 8px; border-radius: 6px; width: fit-content;">⏳ Đang đồng bộ...</div>`;
         }
         
         const pinObj = State.HARDWARE_PINS.find(p => parseInt(p.pin) === parseInt(dev.pin));
         const shortPinLabel = pinObj ? pinObj.label.split(' ')[0] : `GPIO ${dev.pin}`;
+
+        let toggleHtml = `<label class="toggle-switch" style="margin-top: 5px; ${isZoneCycleOverridden && dev.type === 'fan' ? 'opacity:0.5; pointer-events:none;' : ''}">
+                    <input type="checkbox" ${isOn ? 'checked' : ''} onchange="App.toggleRelay('${dev.id}', this.checked)">
+                    <span class="slider"></span>
+                </label>`;
 
         return `
         <div class="control-card" style="flex-direction: column; align-items: stretch; gap: 12px;">
@@ -190,10 +238,7 @@ const UI = {
                         ${timerHtml}
                     </div>
                 </div>
-                <label class="toggle-switch" style="margin-top: 5px;">
-                    <input type="checkbox" ${isOn ? 'checked' : ''} onchange="App.toggleRelay('${dev.id}', this.checked)">
-                    <span class="slider"></span>
-                </label>
+                ${toggleHtml}
             </div>
             <div class="device-actions">
                 <button class="btn-text btn-edit" onclick="UI.openEditModal('${dev.id}')">✏️ Sửa</button>
@@ -256,48 +301,14 @@ const UI = {
     },
     toggleCycleSettings: function(show) { document.getElementById('cycle-timers').className = show ? 'mt-20 grid-2' : 'hidden mt-20 grid-2'; },
     
-    openCycleSettingsModal: function() {
-        const s = State.settings;
-        document.getElementById('setting-cycle-mode').value = s.cycleMode;
-        document.getElementById('setting-zone-time').value = s.zoneCycleTime;
-        document.getElementById('setting-barn-rule').value = s.barnCycleRule;
-        document.getElementById('setting-barn-time').value = s.barnCycleTime;
 
-        // Render checkboxes
-        let cbHtml = MasterData.zones.filter(z => z.id !== 'all').map(z => {
-            const checked = s.barnCycleZones.includes(z.id) ? 'checked' : '';
-            return `<label style="display: flex; align-items: center; gap: 8px;">
-                        <input type="checkbox" value="${z.id}" ${checked}> ${z.icon} ${z.name}
-                    </label>`;
-        }).join('');
-        
-        cbHtml += `<label style="display: flex; align-items: center; gap: 8px; margin-top: 5px; font-weight: bold;">
-                        <input type="checkbox" value="all" ${s.barnCycleZones.includes('all') ? 'checked' : ''}> 🏠 Tất cả khu vực
-                    </label>`;
-                    
-        document.getElementById('setting-barn-zones').innerHTML = cbHtml;
-
-        UI.toggleCycleModeSettings(s.cycleMode);
-        UI.openModal('modal-cycle-settings');
-    },
-
-    toggleCycleModeSettings: function(mode) {
-        document.getElementById('setting-zone-config').style.display = (mode === 'zone') ? 'block' : 'none';
-        document.getElementById('setting-barn-config').style.display = (mode === 'barn') ? 'block' : 'none';
-    },
 
     checkCycleOverrideWarning: function(devType, devZone) {
-        const s = State.settings;
         let isOverridden = false;
-        
-        if (devType === 'fan') {
-            if (s.cycleMode === 'barn') {
-                if (s.barnCycleZones.includes('all') || s.barnCycleZones.includes(devZone)) isOverridden = true;
-            } else if (s.cycleMode === 'zone' && devZone !== '' && devZone !== 'all') {
-                isOverridden = true;
-            }
+        if (devType === 'fan' && devZone !== 'all') {
+            const zc = State.settings.zoneCycles ? State.settings.zoneCycles.find(x => x.zone === devZone) : null;
+            if (zc && zc.enabled) isOverridden = true;
         }
-        
         const msgEl = document.getElementById('cycle-override-msg');
         if (msgEl) {
             msgEl.style.display = isOverridden ? 'block' : 'none';
