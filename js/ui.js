@@ -5,11 +5,9 @@ const UI = {
         if(l) { 
             document.getElementById('loading-text').innerText = txt; 
             l.classList.remove('hidden'); 
-            // FIX: Chống kẹt màn hình loading mãi mãi (Tự tắt sau 10s)
             if(window.globalLoadingTimeout) clearTimeout(window.globalLoadingTimeout);
             window.globalLoadingTimeout = setTimeout(() => { 
                 l.classList.add('hidden'); 
-                console.warn("Đã ép tắt màn hình Loading do quá trễ!");
             }, 10000);
         }
     },
@@ -62,11 +60,19 @@ const UI = {
         document.getElementById('header-ota').style.display = 'flex';
         
         if(window.fakeOtaInterval) { clearInterval(window.fakeOtaInterval); window.fakeOtaInterval = null; }
+        if(window.otaTimeout) { clearTimeout(window.otaTimeout); } 
+        
+        // Reset timeout chờ gói tin tiếp theo
+        window.otaTimeout = setTimeout(() => {
+            UI.cancelOtaProgress("Mất kết nối với mạch khi đang nạp OTA!");
+        }, 60000);
 
         document.getElementById('header-ota-bar').style.width = percent + '%';
         document.getElementById('header-ota-percent').innerText = percent + '%';
+        document.getElementById('header-ota-text').innerText = "☁️ Đang tải dữ liệu thực tế...";
         
         if (percent >= 100) {
+            clearTimeout(window.otaTimeout);
             document.getElementById('header-ota-text').innerText = "Thành công! Đang khởi động lại...";
             document.getElementById('header-ota-percent').innerText = "OK";
             setTimeout(() => { window.location.reload(); }, 5000);
@@ -84,6 +90,7 @@ const UI = {
         document.getElementById('header-ota-text').innerText = "☁️ Đang tải và nạp Firmware...";
         
         if(window.fakeOtaInterval) clearInterval(window.fakeOtaInterval);
+        if(window.otaTimeout) clearTimeout(window.otaTimeout);
         
         window.fakeOtaInterval = setInterval(() => {
             if (fakePercent < 95) {
@@ -91,9 +98,24 @@ const UI = {
                 document.getElementById('header-ota-bar').style.width = fakePercent + '%';
                 document.getElementById('header-ota-percent').innerText = fakePercent + '%';
             } else {
-                document.getElementById('header-ota-text').innerText = "⏳ Đang xử lý... (Vui lòng chờ)";
+                document.getElementById('header-ota-text').innerText = "⏳ Đang nạp vào bộ nhớ... (Không tắt điện)";
             }
         }, 800);
+
+        // FIX: Nếu quá 2 phút không xong (mạch bị lỗi ngầm), tự hủy giao diện Loading
+        window.otaTimeout = setTimeout(() => {
+            UI.cancelOtaProgress("Hết thời gian chờ! Quá trình nạp Firmware thất bại do link lỗi hoặc rớt mạng.");
+        }, 120000);
+    },
+
+    // FIX: Hàm xử lý khi mạch gửi thông báo lỗi OTA về
+    cancelOtaProgress: function(errStr) {
+        if(window.fakeOtaInterval) clearInterval(window.fakeOtaInterval);
+        if(window.otaTimeout) clearTimeout(window.otaTimeout);
+        
+        document.getElementById('header-normal').style.display = 'flex';
+        document.getElementById('header-ota').style.display = 'none';
+        UI.showAlert("OTA Thất bại", errStr, "❌");
     },
 
     updateVersionUI: function(currentVer, newVer = null) {

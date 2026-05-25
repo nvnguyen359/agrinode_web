@@ -21,9 +21,12 @@ const Network = {
                 } else if (msg.destinationName === TOPIC_TELEMETRY) {
                     const data = JSON.parse(msg.payloadString);
                     
-                    // PHÁT HIỆN GÓI TIN TIẾN TRÌNH TẢI
                     if (data.ota_progress !== undefined) {
                         UI.showOtaProgress(data.ota_progress);
+                    }
+                    // FIX: Bắt thông báo lỗi OTA từ ESP gửi về
+                    if (data.ota_error !== undefined) {
+                        if (UI.cancelOtaProgress) UI.cancelOtaProgress("Lỗi từ mạch ESP: " + data.ota_error);
                     }
                     UI.updateTelemetryUI(data);
                 }
@@ -110,7 +113,6 @@ const Network = {
             dataHasUpdated = true; 
         }
         
-        // Hỗ trợ cả mảng json trực tiếp (format cũ) và object (format mới để chống đứt phiên bản)
         if (data.devices) { State.devices = data.devices; dataHasUpdated = true; App.checkAndRestoreBackup(); } 
         else if (Array.isArray(data)) { State.devices = data; dataHasUpdated = true; App.checkAndRestoreBackup(); }
         
