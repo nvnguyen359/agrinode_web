@@ -29,9 +29,13 @@ const App = {
             await App.fetchLocalDevices(); 
         }
 
+        // FIX: Tự động gọi checkPin để tắt màn hình Loading
         if (State.currentPin) {
             document.getElementById('pin-lock-overlay').classList.add('hidden');
+            document.getElementById('secret-pin-input').value = State.currentPin; 
             UI.showLoading("Đang kết nối hệ thống...");
+            // Thêm dòng này để hệ thống tự chạy xác thực và ẩn Loading
+            setTimeout(() => { App.checkPin(); }, 500);
         } else {
             document.getElementById('pin-lock-overlay').classList.remove('hidden');
         }
@@ -149,7 +153,7 @@ const App = {
         const deviceData = {
             id: State.editingDeviceId ? State.editingDeviceId : 'dev_' + Date.now(),
             type: State.tempDeviceType, 
-            name: generatedName, // Dùng tên tự động gen
+            name: generatedName, 
             pin: parseInt(selectedPin), 
             zone: document.getElementById('dev-zone').value, 
             isCycleMode: isCycle,
@@ -193,12 +197,10 @@ const App = {
         }, "⚠️", true);
     },
 
-    // THÊM CỜ SILENT ĐỂ TRÁNH RỚT FRAME KHI BẤM TICK CHECKBOX LUÂN PHIÊN
     saveSettings: async function(silent = false) {
         if (!Config.isLocal) {
             let msg = JSON.parse(JSON.stringify(State.settings));
             msg.cmd = "save_settings";
-            // Gửi action nhưng truyền null vào loading message để nó chạy ngầm
             Network.sendAction(msg, silent ? null : "Đang lưu cấu hình...", () => { UI.renderDevices(); }); 
             return;
         }
@@ -228,9 +230,7 @@ const App = {
             if (timeVal) zc.cycleTime = parseInt(timeVal);
         }
         
-        // Cố ý ép bộ đếm thời gian của các quạt này về rỗng để hiển thị ngay chữ "Đang đồng bộ..." cho đỡ lag
         State.devices.filter(d => d.zone === zoneId).forEach(d => d.timeLeft = undefined);
-        
         App.saveSettings(true); // Lưu ẩn (silent)
     },
     
@@ -245,9 +245,7 @@ const App = {
             }
         });
         
-        // Ép toàn bộ về đồng bộ chờ Telemetry
         State.devices.forEach(d => d.timeLeft = undefined);
-        
         App.saveSettings(true); // Lưu ẩn
     },
 
