@@ -7,7 +7,8 @@ const App = {
             try {
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 3000);
-                const infoRes = await fetch('/api/info', { signal: controller.signal });
+                // CHỐNG CACHE API BẰNG THỜI GIAN THỰC
+                const infoRes = await fetch('/api/info?_t=' + Date.now(), { signal: controller.signal });
                 clearTimeout(timeoutId);
                 const infoData = await infoRes.json();
                 State.HARDWARE_PINS = infoData.hardware_pins;
@@ -20,7 +21,8 @@ const App = {
             } catch (e) { console.warn("Lỗi tải API /info", e); }
             
             try {
-                const resSettings = await fetch('/api/settings');
+                // CHỐNG CACHE 
+                const resSettings = await fetch('/api/settings?_t=' + Date.now());
                 if (resSettings.ok) {
                     State.settings = await resSettings.json();
                 }
@@ -42,7 +44,6 @@ const App = {
         App.startStatusLoop();
         App.startCountdownLoop();
     },
-
 
     checkPin: function() {
         const inputStr = document.getElementById('secret-pin-input').value;
@@ -81,11 +82,11 @@ const App = {
         try {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 3000);
-            const res = await fetch('/api/devices', { signal: controller.signal });
+            // CHỐNG CACHE
+            const res = await fetch('/api/devices?_t=' + Date.now(), { signal: controller.signal });
             clearTimeout(timeoutId);
             if (res.ok) { 
                 const data = await res.json();
-                // FIX: Support cả JSON chuẩn mới có root node "devices"
                 State.devices = data.devices ? data.devices : data; 
                 if(data.version) {
                     State.CURRENT_VERSION = data.version;
@@ -300,7 +301,8 @@ const App = {
             State.isFetchingStatus = true; 
             try {
                 const controller = new AbortController(); const timeoutId = setTimeout(() => controller.abort(), 4000);
-                const res = await fetch('/api/status', { signal: controller.signal });
+                // CHỐNG CACHE
+                const res = await fetch('/api/status?_t=' + Date.now(), { signal: controller.signal });
                 clearTimeout(timeoutId);
                 document.getElementById('connection-status').className = 'status-dot online';
                 UI.updateTelemetryUI(await res.json());
@@ -314,7 +316,8 @@ const App = {
             if (State.devices.length === 0) return;
             
             State.devices.forEach(dev => {
-                if (dev.isCycleMode && dev.timeLeft !== undefined) {
+                // SỬA: Bỏ điều kiện dev.isCycleMode để hỗ trợ cả đếm ngược luân phiên khu vực
+                if (dev.timeLeft !== undefined) {
                     if (dev.timeLeft > 0) dev.timeLeft--;
                     
                     const timerEl = document.getElementById(`timer-${dev.id}`);

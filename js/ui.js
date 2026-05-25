@@ -85,15 +85,11 @@ const UI = {
                 document.getElementById('header-ota-bar').style.width = fakePercent + '%';
                 document.getElementById('header-ota-percent').innerText = fakePercent + '%';
             } else {
-                document.getElementById('header-ota-text').innerText = "⏳ Đang khởi động lại ESP...";
+                document.getElementById('header-ota-text').innerText = "⏳ Đang xử lý... (Vui lòng chờ)";
             }
         }, 800);
         
-        // Tự động tải lại trang sau 2 phút nếu quá trình nạp lâu
-        setTimeout(() => {
-            if(window.fakeOtaInterval) clearInterval(window.fakeOtaInterval);
-            window.location.reload();
-        }, 120000);
+        // Đã xóa bỏ setTimeout 120000 ép reload trang ở đây
     },
 
     updateVersionUI: function(currentVer, newVer = null) {
@@ -300,8 +296,6 @@ const UI = {
         if (State.tempDeviceType === 'fan') { document.getElementById('dev-cycle-enable').checked = true; UI.toggleCycleSettings(true); document.getElementById('dev-cycle-on').value = d.cycleOn; document.getElementById('dev-cycle-off').value = d.cycleOff; }
     },
     toggleCycleSettings: function(show) { document.getElementById('cycle-timers').className = show ? 'mt-20 grid-2' : 'hidden mt-20 grid-2'; },
-    
-
 
     checkCycleOverrideWarning: function(devType, devZone) {
         let isOverridden = false;
@@ -313,6 +307,20 @@ const UI = {
         if (msgEl) {
             msgEl.style.display = isOverridden ? 'block' : 'none';
         }
+        
+        // Disable individual cycle inputs if overridden
+        const cbEnable = document.getElementById('dev-cycle-enable');
+        const inputOn = document.getElementById('dev-cycle-on');
+        const inputOff = document.getElementById('dev-cycle-off');
+        if (cbEnable) cbEnable.disabled = isOverridden;
+        if (inputOn) inputOn.disabled = isOverridden;
+        if (inputOff) inputOff.disabled = isOverridden;
+        
+        if (isOverridden && cbEnable) {
+            cbEnable.checked = false;
+            UI.toggleCycleSettings(false);
+        }
+        
         return isOverridden;
     },
 
