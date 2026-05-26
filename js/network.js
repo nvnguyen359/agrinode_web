@@ -26,6 +26,9 @@ const Network = {
                     if (data.ota_progress !== undefined) {
                         UI.showOtaProgress(data.ota_progress);
                     }
+                    if (data.ota_error !== undefined) {
+                        UI.cancelOtaProgress("Lỗi cập nhật từ mạch: " + data.ota_error);
+                    }
                     UI.updateTelemetryUI(data);
                 }
             };

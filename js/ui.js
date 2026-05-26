@@ -100,6 +100,17 @@ const UI = {
             } else {
                 document.getElementById('header-ota-text').innerText = "⏳ Đang nạp vào bộ nhớ... (Không tắt điện)";
             }
+            if (Config.isLocal && fakePercent > 30) {
+                fetch('/api/info?_t=' + Date.now()).then(res => {
+                    if (res.ok) {
+                        clearInterval(window.fakeOtaInterval);
+                        clearTimeout(window.otaTimeout);
+                        document.getElementById('header-ota-text').innerText = "Thành công! Đang tải lại trang...";
+                        document.getElementById('header-ota-percent').innerText = "OK";
+                        setTimeout(() => window.location.reload(), 2000);
+                    }
+                }).catch(e => {});
+            }
         }, 800);
 
         // FIX: Nếu quá 2 phút không xong (mạch bị lỗi ngầm), tự hủy giao diện Loading
