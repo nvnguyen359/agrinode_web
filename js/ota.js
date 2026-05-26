@@ -1,5 +1,19 @@
 // ota.js - Quản lý Cập nhật Firmware (Over-The-Air)
 const OTA = {
+    // FIX 1: Thêm hàm so sánh phiên bản chuẩn. Chỉ trả về true nếu version Cloud MỚI HƠN version Mạch
+    isNewerVersion: function(current, latest) {
+        if (!current || !latest || current === "Unknown") return false;
+        const c = current.split('.').map(Number);
+        const l = latest.split('.').map(Number);
+        for (let i = 0; i < Math.max(c.length, l.length); i++) {
+            const numC = c[i] || 0;
+            const numL = l[i] || 0;
+            if (numL > numC) return true;
+            if (numL < numC) return false;
+        }
+        return false;
+    },
+
     autoCheckUpdate: async function() {
         if (State.CURRENT_VERSION === "Unknown") return;
         try {
@@ -7,7 +21,8 @@ const OTA = {
             const res = await fetch(checkUrl, { cache: "no-store" });
             const vData = await res.json();
             
-            if (vData.version && vData.version !== State.CURRENT_VERSION) {
+            // FIX 2: Sử dụng hàm isNewerVersion thay vì so sánh khác nhau (!==)
+            if (vData.version && OTA.isNewerVersion(State.CURRENT_VERSION, vData.version)) {
                 UI.updateVersionUI(State.CURRENT_VERSION, vData.version);
                 UI.toggleOtaBadge(true); 
                 
@@ -32,7 +47,8 @@ const OTA = {
 
             if (!vData.version || !vData.firmware_url) return UI.showAlert("Lỗi", "File JSON trên GitHub không hợp lệ.", "❌");
             
-            if (vData.version === State.CURRENT_VERSION) {
+            // FIX 3: Sử dụng hàm isNewerVersion
+            if (!OTA.isNewerVersion(State.CURRENT_VERSION, vData.version)) {
                 UI.updateVersionUI(State.CURRENT_VERSION);
                 UI.toggleOtaBadge(false);
                 return UI.showAlert("Thông báo", `🎉 Thiết bị của bạn đang ở phiên bản mới nhất (v${State.CURRENT_VERSION}). Không cần cập nhật!`, "✅");
