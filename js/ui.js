@@ -64,8 +64,8 @@ const UI = {
         
         // Reset timeout chờ gói tin tiếp theo
         window.otaTimeout = setTimeout(() => {
-            UI.cancelOtaProgress("Mất kết nối với mạch khi đang nạp OTA!");
-        }, 60000);
+            UI.cancelOtaProgress("Hết thời gian chờ! Quá trình nạp Firmware thất bại do link lỗi hoặc rớt mạng.");
+        }, 240000);
 
         document.getElementById('header-ota-bar').style.width = percent + '%';
         document.getElementById('header-ota-percent').innerText = percent + '%';
