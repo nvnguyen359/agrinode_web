@@ -13,7 +13,6 @@ const Network = {
             State.mqttClient.onMessageArrived = (msg) => {
                 if (msg.retained) return; 
                 
-                // FIX: Dùng Config.DEVICE_PREFIX thay vì hardcode agrinode_
                 const TOPIC_CONFIG = `${Config.DEVICE_PREFIX}${Config.MAC_ADDRESS}/config`.toLowerCase();
                 const TOPIC_TELEMETRY = `${Config.DEVICE_PREFIX}${Config.MAC_ADDRESS}/telemetry`.toLowerCase();
 
@@ -26,6 +25,7 @@ const Network = {
                     if (data.ota_progress !== undefined) {
                         UI.showOtaProgress(data.ota_progress);
                     }
+                    // BẮT LỖI OTA ĐỂ WEB KHÔNG BỊ ĐƠ
                     if (data.ota_error !== undefined) {
                         UI.cancelOtaProgress("Lỗi cập nhật từ mạch: " + data.ota_error);
                     }
@@ -45,7 +45,6 @@ const Network = {
                 State.isMqttConnected = true; 
                 document.getElementById('connection-status').className = 'status-dot online';
                 
-                // FIX: Lắng nghe đúng kênh của mạch
                 State.mqttClient.subscribe(`${Config.DEVICE_PREFIX}${Config.MAC_ADDRESS}/telemetry`.toLowerCase()); 
                 State.mqttClient.subscribe(`${Config.DEVICE_PREFIX}${Config.MAC_ADDRESS}/config`.toLowerCase()); 
                 
@@ -132,7 +131,6 @@ const Network = {
         
         const executeSend = () => {
             const message = new Paho.MQTT.Message(JSON.stringify(payloadObj));
-            // FIX: Gửi đúng kênh
             message.destinationName = `${Config.DEVICE_PREFIX}${Config.MAC_ADDRESS}/control`.toLowerCase();
             try {
                 if (loadingMsg) UI.showLoading(loadingMsg);
