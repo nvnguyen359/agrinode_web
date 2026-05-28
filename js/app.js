@@ -28,7 +28,13 @@ const App = {
             const controller = new AbortController();
             setTimeout(() => controller.abort(), 3000);
             fetch('/api/info?_t=' + Date.now(), { signal: controller.signal })
-            .then(res => res.json())
+            .then(res => {
+                if (res.ok) {
+                    UI.hideOfflineOverlay();
+                    document.getElementById('connection-status').className = 'status-dot online';
+                }
+                return res.json();
+            })
             .then(infoData => {
                 State.HARDWARE_PINS = infoData.hardware_pins;
                 if (infoData.version) {

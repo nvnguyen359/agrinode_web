@@ -18,6 +18,9 @@ const Network = {
                 const TOPIC_TELEMETRY = `${Config.DEVICE_PREFIX}${Config.MAC_ADDRESS}/telemetry`.toLowerCase();
 
                 if (msg.destinationName === TOPIC_CONFIG) {
+                    State.lastTelemetryTime = Date.now();
+                    document.getElementById('connection-status').className = 'status-dot online';
+                    UI.hideOfflineOverlay();
                     const data = JSON.parse(msg.payloadString);
                     Network.handleConfigMessage(data);
                 } else if (msg.destinationName === TOPIC_TELEMETRY) {
@@ -46,10 +49,7 @@ const Network = {
         State.mqttClient.connect({ 
             userName: Config.MQTT_USER, password: Config.MQTT_PASS, useSSL: true, timeout: 10,
             onSuccess: () => { 
-                State.isMqttConnected = true; 
-                State.lastTelemetryTime = Date.now();
-                document.getElementById('connection-status').className = 'status-dot online';
-                if (!Config.isLocal) UI.hideOfflineOverlay();
+                State.isMqttConnected = true;
                 
                 State.mqttClient.subscribe(`${Config.DEVICE_PREFIX}${Config.MAC_ADDRESS}/telemetry`.toLowerCase()); 
                 State.mqttClient.subscribe(`${Config.DEVICE_PREFIX}${Config.MAC_ADDRESS}/config`.toLowerCase()); 
