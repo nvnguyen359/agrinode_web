@@ -7,6 +7,7 @@ const Network = {
             State.mqttClient.onConnectionLost = () => { 
                 State.isMqttConnected = false; 
                 document.getElementById('connection-status').className = 'status-dot offline'; 
+                if (!Config.isLocal) UI.showOfflineOverlay();
                 setTimeout(Network.connectMQTT, 3000); 
             };
             
@@ -44,6 +45,7 @@ const Network = {
             onSuccess: () => { 
                 State.isMqttConnected = true; 
                 document.getElementById('connection-status').className = 'status-dot online';
+                if (!Config.isLocal) UI.hideOfflineOverlay();
                 
                 State.mqttClient.subscribe(`${Config.DEVICE_PREFIX}${Config.MAC_ADDRESS}/telemetry`.toLowerCase()); 
                 State.mqttClient.subscribe(`${Config.DEVICE_PREFIX}${Config.MAC_ADDRESS}/config`.toLowerCase()); 

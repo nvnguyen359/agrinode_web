@@ -16,6 +16,14 @@ const UI = {
         if(l) l.classList.add('hidden');
         if(window.globalLoadingTimeout) clearTimeout(window.globalLoadingTimeout);
     },
+    showOfflineOverlay: function() {
+        const el = document.getElementById('offline-overlay');
+        if(el && el.classList.contains('hidden')) el.classList.remove('hidden');
+    },
+    hideOfflineOverlay: function() {
+        const el = document.getElementById('offline-overlay');
+        if(el && !el.classList.contains('hidden')) el.classList.add('hidden');
+    },
     navigate: function(id) {
         document.querySelectorAll('.page, .nav-item').forEach(e => e.classList.remove('active'));
         document.getElementById('view-' + id).classList.add('active');

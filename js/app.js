@@ -339,15 +339,23 @@ const App = {
     startStatusLoop: function() {
         setInterval(async () => {
             if(!document.getElementById('view-dashboard').classList.contains('active') || State.isFetchingStatus) return;
-            if (!Config.isLocal) { document.getElementById('connection-status').className = State.isMqttConnected ? 'status-dot online' : 'status-dot offline'; return; }
+            if (!Config.isLocal) { 
+                document.getElementById('connection-status').className = State.isMqttConnected ? 'status-dot online' : 'status-dot offline'; 
+                if(!State.isMqttConnected) UI.showOfflineOverlay(); else UI.hideOfflineOverlay();
+                return; 
+            }
             State.isFetchingStatus = true; 
             try {
                 const controller = new AbortController(); const timeoutId = setTimeout(() => controller.abort(), 4000);
                 const res = await fetch('/api/status?_t=' + Date.now(), { signal: controller.signal });
                 clearTimeout(timeoutId);
                 document.getElementById('connection-status').className = 'status-dot online';
+                UI.hideOfflineOverlay();
                 UI.updateTelemetryUI(await res.json());
-            } catch(e) { document.getElementById('connection-status').className = State.isMqttConnected ? 'status-dot online' : 'status-dot offline'; }
+            } catch(e) { 
+                document.getElementById('connection-status').className = 'status-dot offline'; 
+                UI.showOfflineOverlay();
+            }
             finally { State.isFetchingStatus = false; }
         }, 5000);
     },
