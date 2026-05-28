@@ -340,8 +340,9 @@ const App = {
         setInterval(async () => {
             if(!document.getElementById('view-dashboard').classList.contains('active') || State.isFetchingStatus) return;
             if (!Config.isLocal) { 
-                document.getElementById('connection-status').className = State.isMqttConnected ? 'status-dot online' : 'status-dot offline'; 
-                if(!State.isMqttConnected) UI.showOfflineOverlay(); else UI.hideOfflineOverlay();
+                const isDeviceOnline = State.isMqttConnected && (Date.now() - State.lastTelemetryTime < 15000);
+                document.getElementById('connection-status').className = isDeviceOnline ? 'status-dot online' : 'status-dot offline'; 
+                if(!isDeviceOnline) UI.showOfflineOverlay(); else UI.hideOfflineOverlay();
                 return; 
             }
             State.isFetchingStatus = true; 

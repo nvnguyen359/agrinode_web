@@ -25,6 +25,7 @@ const State = {
     CURRENT_VERSION: "Unknown",
     hasCheckedUpdate: false,
     isFetchingStatus: false,
+    lastTelemetryTime: 0,
     settings: {
         zoneCycles: [] 
     }

@@ -22,6 +22,9 @@ const Network = {
                     Network.handleConfigMessage(data);
                 } else if (msg.destinationName === TOPIC_TELEMETRY) {
                     const data = JSON.parse(msg.payloadString);
+                    State.lastTelemetryTime = Date.now();
+                    document.getElementById('connection-status').className = 'status-dot online';
+                    UI.hideOfflineOverlay();
                     
                     if (data.ota_progress !== undefined) {
                         UI.showOtaProgress(data.ota_progress);
@@ -44,6 +47,7 @@ const Network = {
             userName: Config.MQTT_USER, password: Config.MQTT_PASS, useSSL: true, timeout: 10,
             onSuccess: () => { 
                 State.isMqttConnected = true; 
+                State.lastTelemetryTime = Date.now();
                 document.getElementById('connection-status').className = 'status-dot online';
                 if (!Config.isLocal) UI.hideOfflineOverlay();
                 
