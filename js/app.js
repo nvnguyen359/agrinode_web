@@ -89,4 +89,7 @@ window.App = {
     }
 };
 
+// Khai báo này giúp thẻ HTML nhận diện được hàm UI.selectDeviceType(...)
+window.UI = window.App.UI; 
+
 window.onload = () => App.init();

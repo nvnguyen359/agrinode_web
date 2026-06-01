@@ -140,6 +140,7 @@ class UIManager {
                 </label>
             </div>
             <div class="device-actions">
+                <button class="btn-text btn-edit" onclick="App.UI.editDevice('${dev.id}')">✏️ Sửa</button>
                 <button class="btn-text btn-delete" onclick="App.DeviceCtrl.deleteDevicePrompt('${dev.id}')">🗑️ Xóa</button>
             </div>
         </div>`;
@@ -187,7 +188,7 @@ class UIManager {
         }
     }
 
-    // OTA UI Progress (Giữ nguyên giả lập)
+    // OTA UI Progress
     startFakeOtaProgress() {
         this.closeConfirm();
         document.getElementById('header-normal').style.display = 'none'; document.getElementById('header-ota').style.display = 'flex';
@@ -201,5 +202,129 @@ class UIManager {
     cancelOtaProgress(errStr) {
         document.getElementById('header-normal').style.display = 'flex'; document.getElementById('header-ota').style.display = 'none';
         this.showAlert("OTA Thất bại", errStr, "❌");
+    }
+
+    // --- KHU VỰC THÊM/SỬA THIẾT BỊ (UPSERT) ---
+
+    selectDeviceType(type) {
+        Store.set('tempDeviceType', type);
+        Store.set('editingDeviceId', null);
+        this.closeModal('modal-select-type');
+
+        // Reset form cho thêm mới
+        document.getElementById('config-title').innerText = 'Thêm mới thiết bị';
+        document.getElementById('dev-mac').value = '';
+        document.getElementById('dev-cycle-enable').checked = false;
+        this.toggleCycleSettings(false);
+        this.toggleConnectionFields();
+        
+        // Load danh sách chân GPIO hiện có
+        document.getElementById('dev-pin').innerHTML = Store.get('HARDWARE_PINS').map(p => `<option value="${p.pin}">${p.label}</option>`).join('');
+
+        this.openModal('modal-config-device');
+    }
+
+    editDevice(id) {
+        const dev = Store.get('devices').find(d => d.id === id);
+        if (!dev) return;
+
+        Store.set('editingDeviceId', id);
+        Store.set('tempDeviceType', dev.type);
+        document.getElementById('config-title').innerText = 'Chỉnh sửa: ' + dev.name;
+
+        // Điền dữ liệu cũ vào form
+        document.getElementById('dev-connection-type').value = dev.connectionType || 'wired';
+        this.toggleConnectionFields();
+
+        if (dev.connectionType === 'espnow') {
+            document.getElementById('dev-mac').value = dev.macAddress || '';
+        } else {
+            document.getElementById('dev-pin').innerHTML = Store.get('HARDWARE_PINS').map(p => `<option value="${p.pin}">${p.label}</option>`).join('');
+            document.getElementById('dev-pin').value = dev.pin;
+        }
+
+        document.getElementById('dev-zone').value = dev.zone;
+        document.getElementById('dev-threshold').value = dev.threshold || 25;
+        document.getElementById('threshold-val').innerText = dev.threshold || 25;
+
+        document.getElementById('dev-cycle-enable').checked = dev.isCycleMode || false;
+        this.toggleCycleSettings(dev.isCycleMode || false);
+        document.getElementById('dev-cycle-on').value = dev.cycleOn || 1;
+        document.getElementById('dev-cycle-off').value = dev.cycleOff || 5;
+
+        this.openModal('modal-config-device');
+    }
+
+    submitDeviceConfig() {
+        const type = Store.get('tempDeviceType');
+        const isEspNow = document.getElementById('dev-connection-type').value === 'espnow';
+
+        // Gom dữ liệu từ Form
+        const deviceData = {
+            id: Store.get('editingDeviceId') || `dev_${Date.now()}`,
+            type: type,
+            name: document.getElementById('config-title').innerText.includes('Chỉnh sửa') ? 
+                  Store.get('devices').find(d=>d.id === Store.get('editingDeviceId')).name : 
+                  MasterData.deviceTypeNames[type],
+            connectionType: document.getElementById('dev-connection-type').value,
+            pin: isEspNow ? 99 : parseInt(document.getElementById('dev-pin').value),
+            macAddress: isEspNow ? document.getElementById('dev-mac').value.trim().toUpperCase() : "",
+            zone: document.getElementById('dev-zone').value,
+            threshold: parseInt(document.getElementById('dev-threshold').value),
+            isCycleMode: document.getElementById('dev-cycle-enable').checked,
+            cycleOn: parseInt(document.getElementById('dev-cycle-on').value),
+            cycleOff: parseInt(document.getElementById('dev-cycle-off').value),
+            state: 'OFF'
+        };
+
+        // Giữ nguyên trạng thái (ON/OFF) nếu đang Edit, tránh việc lưu xong bị tắt quạt
+        if (Store.get('editingDeviceId')) {
+            const oldDev = Store.get('devices').find(d => d.id === Store.get('editingDeviceId'));
+            if (oldDev) deviceData.state = oldDev.state;
+        }
+
+        // Bắn dữ liệu sang Controller để xử lý Upsert (Cloud/Local)
+        App.DeviceCtrl.saveDevice(deviceData);
+    }
+
+    // --- CÁC HÀM PHỤ TRỢ (DOM) CHO MODAL ---
+    toggleConnectionFields() {
+        const type = document.getElementById('dev-connection-type').value;
+        if (type === 'espnow') {
+            document.getElementById('group-dev-pin').classList.add('hidden');
+            document.getElementById('group-dev-mac').classList.remove('hidden');
+        } else {
+            document.getElementById('group-dev-pin').classList.remove('hidden');
+            document.getElementById('group-dev-mac').classList.add('hidden');
+        }
+    }
+
+    toggleCycleSettings(isChecked) {
+        if (isChecked) document.getElementById('cycle-timers').classList.remove('hidden');
+        else document.getElementById('cycle-timers').classList.add('hidden');
+    }
+
+    autoFillAnimalByZone() {
+        const zone = document.getElementById('dev-zone').value;
+        const zData = MasterData.zones.find(z => z.id === zone);
+        if (zData && zData.animal !== 'none') {
+            document.getElementById('dev-animal').value = zData.animal;
+            this.applySmartRecommendation();
+        } else {
+            document.getElementById('dev-animal').value = 'none';
+        }
+    }
+
+    applySmartRecommendation() {
+        const animal = document.getElementById('dev-animal').value;
+        if (animal !== 'none') {
+            const data = MasterData.animalData[animal];
+            document.getElementById('dev-threshold').value = data.temp;
+            document.getElementById('threshold-val').innerText = data.temp;
+            document.getElementById('dev-cycle-enable').checked = true;
+            this.toggleCycleSettings(true);
+            document.getElementById('dev-cycle-on').value = data.cycleOn;
+            document.getElementById('dev-cycle-off').value = data.cycleOff;
+        }
     }
 }
