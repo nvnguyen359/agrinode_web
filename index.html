@@ -15,7 +15,7 @@
                     <span id="header-version" style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">v--</span>
                 </h2>
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <div id="btn-ota-update" style="cursor: pointer; position: relative; display: none;" onclick="OTA.promptUpdate()">
+                    <div id="btn-ota-update" style="cursor: pointer; position: relative; display: none;" onclick="App.SystemCtrl.promptUpdate()">
                         <svg viewBox="0 0 24 24" width="24" height="24" stroke="var(--primary)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                         <span id="ota-badge" style="position:absolute; top:-4px; right:-4px; width:10px; height:10px; background:var(--alert-color); border-radius:50%;"></span>
                     </div>
@@ -53,8 +53,8 @@
                 <div class="section-title mt-20 d-flex-between">
                     <span>Thiết bị đang hoạt động</span>
                     <div style="display: flex; gap: 8px;">
-                        <button class="btn-sm btn-outline" style="border-color: #f59e0b; color: #f59e0b;" onclick="App.scanEspNow()">📡 Quét Không Dây</button>
-                        <button class="btn-sm btn-outline" onclick="UI.openDeviceModal()">+ Thêm</button>
+                        <button class="btn-sm btn-outline" style="border-color: #f59e0b; color: #f59e0b;" onclick="App.DeviceCtrl.scanEspNow()">📡 Quét Không Dây</button>
+                        <button class="btn-sm btn-outline" onclick="App.UI.openModal('modal-config-device')">+ Thêm</button>
                     </div>
                 </div>
                 <div id="device-list"></div>
@@ -66,25 +66,24 @@
                     <span id="current-version-text" style="color: var(--primary); font-size: 0.85rem; font-weight: bold;">Phiên bản: Đang tải...</span>
                 </div>
                 <div class="card setup-card" style="margin-bottom: 20px;">
-                    <button class="btn-primary" onclick="OTA.promptUpdate(true)" style="background: #3b82f6;">Kiểm tra bản cập nhật mới</button>
+                    <button class="btn-primary" onclick="App.SystemCtrl.promptUpdate(true)" style="background: #3b82f6;">Kiểm tra bản cập nhật mới</button>
                 </div>
 
                 <div class="section-title">Kết nối Internet (WiFi)</div>
                 <div class="card setup-card" style="margin-bottom: 20px;">
                     <p class="setup-desc">Chọn mạng WiFi để thiết bị điều khiển từ xa qua Cloud.</p>
-                    <form id="wifi-form" onsubmit="App.saveWiFi(event)">
+                    <form id="wifi-form" onsubmit="App.saveWiFiSubmit(event)">
                         <div class="input-group">
                             <label>Tên WiFi (SSID)</label>
                             <div class="scan-wrapper">
                                 <select id="wifi-ssid" required><option value="">Đang quét mạng...</option></select>
-                                <button type="button" class="btn-icon" onclick="App.scanWiFi()">🔄</button>
+                                <button type="button" class="btn-icon" onclick="App.SystemCtrl.scanWiFi()">🔄</button>
                             </div>
                         </div>
                         <div class="input-group">
                             <label>Mật khẩu</label>
                             <div style="position: relative;">
                                 <input type="password" id="wifi-pass" placeholder="Nhập mật khẩu WiFi" style="padding-right: 40px;">
-                                <button type="button" onclick="UI.togglePassword()" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 1.1rem; cursor: pointer; padding: 0;">👁️</button>
                             </div>
                         </div>
                         <button type="submit" class="btn-primary">Lưu & Kết nối lại</button>
@@ -94,19 +93,19 @@
         </main>
 
         <nav class="bottom-nav">
-            <button class="nav-item active" onclick="UI.navigate('dashboard')" id="nav-dashboard">
+            <button class="nav-item active" onclick="App.UI.navigate('dashboard')" id="nav-dashboard">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
                 <span>Thiết bị</span>
             </button>
-            <button class="nav-item" onclick="UI.navigate('setup')" id="nav-setup">
+            <button class="nav-item" onclick="App.UI.navigate('setup')" id="nav-setup">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                 <span>Cài đặt</span>
             </button>
         </nav>
 
-        <div id="modal-select-type" class="modal-overlay hidden"><div class="modal-box"><div class="modal-header"><h3>Chọn loại thiết bị</h3><button class="close-btn" onclick="UI.closeModal('modal-select-type')">✕</button></div><div class="modal-body type-grid"><div class="type-card" onclick="UI.selectDeviceType('fan')"><div class="type-icon">💨</div><div>Quạt thông gió</div></div><div class="type-card" onclick="UI.selectDeviceType('heater')"><div class="type-icon">🔥</div><div>Đèn sưởi ấm</div></div><div class="type-card" onclick="UI.selectDeviceType('pump')"><div class="type-icon">💧</div><div>Bơm nước</div></div></div></div></div>
+        <div id="modal-select-type" class="modal-overlay hidden"><div class="modal-box"><div class="modal-header"><h3>Chọn loại thiết bị</h3><button class="close-btn" onclick="App.UI.closeModal('modal-select-type')">✕</button></div><div class="modal-body type-grid"><div class="type-card" onclick="UI.selectDeviceType('fan')"><div class="type-icon">💨</div><div>Quạt thông gió</div></div><div class="type-card" onclick="UI.selectDeviceType('heater')"><div class="type-icon">🔥</div><div>Đèn sưởi ấm</div></div><div class="type-card" onclick="UI.selectDeviceType('pump')"><div class="type-icon">💧</div><div>Bơm nước</div></div></div></div></div>
         
-        <div id="modal-config-device" class="modal-overlay hidden"><div class="modal-box"><div class="modal-header"><h3 id="config-title">Cấu hình thiết bị</h3><button class="close-btn" onclick="UI.closeModal('modal-config-device')">✕</button></div><div class="modal-body">
+        <div id="modal-config-device" class="modal-overlay hidden"><div class="modal-box"><div class="modal-header"><h3 id="config-title">Cấu hình thiết bị</h3><button class="close-btn" onclick="App.UI.closeModal('modal-config-device')">✕</button></div><div class="modal-body">
             
             <div class="input-group">
                 <label>Loại kết nối</label>
@@ -131,7 +130,7 @@
             <div id="smart-animal-config"><div class="input-group"><label>Đối tượng (Gợi ý thông số)</label><select id="dev-animal" onchange="UI.applySmartRecommendation()"><option value="none">-- Tùy chỉnh thủ công --</option><option value="chicken_baby">Gà con (1-2 tuần)</option><option value="chicken_adult">Gà lớn (Từ 4 tuần)</option><option value="pig_baby">Lợn sơ sinh</option><option value="pig">Heo thịt</option></select></div><div class="input-group"><label>Ngưỡng kích hoạt (<span id="threshold-val">25</span>°C)</label><input type="range" id="dev-threshold" min="10" max="45" value="25" oninput="document.getElementById('threshold-val').innerText = this.value"></div></div>
             <div class="advanced-config" id="config-cycle"><div class="d-flex-between"><label style="margin: 0; font-weight: 600;">Thông gió luân phiên</label><label class="toggle-switch"><input type="checkbox" id="dev-cycle-enable" onchange="UI.toggleCycleSettings(this.checked)"><span class="slider"></span></label></div><div id="cycle-timers" class="hidden mt-20 grid-2"><div class="input-group"><label>⏱️ Bật (phút)</label><input type="number" id="dev-cycle-on" value="1"></div><div class="input-group"><label>⏸️ Nghỉ (phút)</label><input type="number" id="dev-cycle-off" value="5"></div></div><div id="cycle-override-msg" style="display: none; color: #d97706; font-size: 0.85rem; margin-top: 10px;">⚠️ Cài đặt này đang bị vô hiệu hóa do Quạt đang chạy theo chế độ Khu vực / Toàn chuồng.</div></div>
             
-            <button class="btn-primary mt-20" onclick="App.saveDevice()">Lưu thiết bị</button>
+            <button class="btn-primary mt-20" onclick="App.DeviceCtrl.saveDevice()">Lưu thiết bị</button>
         </div></div></div>
         
         <div id="modal-alert" class="modal-overlay hidden" style="z-index: 10001;">
@@ -139,7 +138,7 @@
                 <div id="alert-icon" style="font-size: 45px; margin-bottom: 15px;">⚠️</div>
                 <h3 id="alert-title" style="margin-bottom: 10px; color: #1f2937;">Thông báo</h3>
                 <p id="alert-message" style="color: #6b7280; margin-bottom: 25px; font-size: 0.95rem; white-space: pre-line; line-height: 1.5;"></p>
-                <button class="btn-primary" onclick="UI.closeAlert()">Đóng</button>
+                <button class="btn-primary" onclick="App.UI.closeAlert()">Đóng</button>
             </div>
         </div>
 
@@ -149,7 +148,7 @@
                 <h3 id="confirm-title" style="margin-bottom: 10px; color: #1f2937;">Xác nhận</h3>
                 <p id="confirm-message" style="color: #6b7280; margin-bottom: 25px; font-size: 0.95rem; white-space: pre-line; line-height: 1.5;"></p>
                 <div class="grid-2">
-                    <button class="btn-sm btn-outline" style="padding: 12px; color: #6b7280; border-color: #d1d5db;" onclick="UI.closeConfirm()">Hủy</button>
+                    <button class="btn-sm btn-outline" style="padding: 12px; color: #6b7280; border-color: #d1d5db;" onclick="App.UI.closeConfirm()">Hủy</button>
                     <button class="btn-sm btn-primary" style="padding: 12px; border: none; background: #3b82f6;" id="btn-confirm-ok">Đồng ý</button>
                 </div>
             </div>
@@ -163,10 +162,10 @@
                 <h3 style="margin-bottom: 10px; color: #1f2937; font-size: 1.5rem;">Bảo mật hệ thống</h3>
                 <p style="color: #6b7280; margin-bottom: 25px; font-size: 0.95rem;">Vui lòng nhập mã PIN để truy cập.</p>
                 <div class="input-group">
-                    <input type="password" id="secret-pin-input" placeholder="------" style="text-align: center; font-size: 2rem; letter-spacing: 12px; font-weight: bold; padding: 15px; border-radius: 12px; border: 2px solid #e5e7eb; color: #111827;" maxlength="6" oninput="if(this.value.length === 6) App.checkPin()">
+                    <input type="password" id="secret-pin-input" placeholder="------" style="text-align: center; font-size: 2rem; letter-spacing: 12px; font-weight: bold; padding: 15px; border-radius: 12px; border: 2px solid #e5e7eb; color: #111827;" maxlength="6" oninput="if(this.value.length === 6) App.triggerPinCheck()">
                 </div>
                 <p id="pin-error-msg" style="color: #ef4444; font-size: 0.9rem; display: none; margin-top: 10px; margin-bottom: 5px; font-weight: 500;">❌ Mã PIN không chính xác!</p>
-                <button class="btn-primary" id="btn-unlock" onclick="App.checkPin()" style="margin-top: 20px; font-size: 1.1rem; padding: 12px; transition: 0.3s;">Mở khóa</button>
+                <button class="btn-primary" id="btn-unlock" onclick="App.triggerPinCheck()" style="margin-top: 20px; font-size: 1.1rem; padding: 12px; transition: 0.3s;">Mở khóa</button>
                 <p id="pin-status-msg" style="color: #3b82f6; font-size: 0.85rem; display: none; margin-top: 15px; font-weight: 500; line-height: 1.4;">Đang kết nối Cloud<br>vui lòng chờ trong giây lát...</p>
             </div>
         </div>
@@ -184,7 +183,7 @@
             <div class="modal-box">
                 <div class="modal-header">
                     <h3>📡 Quét Rơ-le Không Dây</h3>
-                    <button class="close-btn" onclick="UI.closeModal('modal-scan-espnow')">✕</button>
+                    <button class="close-btn" onclick="App.UI.closeModal('modal-scan-espnow')">✕</button>
                 </div>
                 <div class="modal-body">
                     <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 15px;">Hãy cấp điện cho bộ Rơ-le ESP-NOW của bạn. Hệ thống đang dò tìm các thiết bị chờ ghép nối xung quanh...</p>
@@ -205,7 +204,7 @@
 
     </div>
 
-   <script src="js/paho-mqtt.js"></script>
+    <script src="js/paho-mqtt.js"></script>
     <script src="js/core.js"></script>
     <script src="js/network.js"></script>
     <script src="js/controllers.js"></script>
